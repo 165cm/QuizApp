@@ -16,7 +16,8 @@ let appState = {
         correct: 0,
         total: 0
     },
-    selectedAnswer: null
+    selectedAnswer: null,
+    showArchivedQuestions: false
 };
 
 // ========================================
@@ -45,8 +46,9 @@ function updateStats() {
     updateStreak();
     document.getElementById('streak-count').textContent = stats.streak;
 
-    // 統計表示
-    document.getElementById('total-questions').textContent = appState.questions.length;
+    // 統計表示（アーカイブされていない問題のみカウント）
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+    document.getElementById('total-questions').textContent = activeQuestions.length;
 
     const accuracy = stats.totalAnswered > 0
         ? Math.round((stats.correctAnswers / stats.totalAnswered) * 100)
@@ -82,8 +84,9 @@ function updateStreak() {
 function updateStartButton() {
     const btn = document.getElementById('start-quiz-btn');
     const todayQuizCount = getTodayQuizCount();
+    const activeQuestions = appState.questions.filter(q => !q.archived);
 
-    if (appState.questions.length === 0) {
+    if (activeQuestions.length === 0) {
         btn.disabled = true;
         btn.textContent = 'まずクイズを生成してください';
     } else {
@@ -94,7 +97,8 @@ function updateStartButton() {
 
 function getTodayQuizCount() {
     const reviewDue = getReviewDueCount();
-    const newQuestions = appState.questions.filter(q => !q.lastReviewed).length;
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+    const newQuestions = activeQuestions.filter(q => !q.lastReviewed).length;
     return Math.min(10, reviewDue + Math.min(5, newQuestions));
 }
 
@@ -260,7 +264,8 @@ ${truncatedText}`;
         reviewCount: 0,
         easeFactor: 2.5,
         interval: 0,
-        nextReview: null
+        nextReview: null,
+        archived: false
     }));
 }
 
@@ -290,8 +295,10 @@ function startQuiz() {
 }
 
 function selectTodayQuestions() {
-    const reviewDue = appState.questions.filter(q => isReviewDue(q));
-    const newQuestions = appState.questions.filter(q => !q.lastReviewed);
+    // アーカイブされていない問題のみを対象とする
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+    const reviewDue = activeQuestions.filter(q => isReviewDue(q));
+    const newQuestions = activeQuestions.filter(q => !q.lastReviewed);
 
     // 適応型難易度選択
     const userLevel = calculateUserLevel();
@@ -349,7 +356,7 @@ function isReviewDue(question) {
 }
 
 function getReviewDueCount() {
-    return appState.questions.filter(q => isReviewDue(q)).length;
+    return appState.questions.filter(q => !q.archived && isReviewDue(q)).length;
 }
 
 function displayQuestion() {
@@ -654,6 +661,164 @@ document.getElementById('home-btn').addEventListener('click', () => {
 });
 
 // ========================================
+// 問題管理画面
+// ========================================
+document.getElementById('manage-btn').addEventListener('click', () => {
+    showManageScreen();
+});
+
+document.getElementById('back-to-home-btn').addEventListener('click', () => {
+    showScreen('home-screen');
+    initHomeScreen();
+});
+
+document.getElementById('toggle-archived-btn').addEventListener('click', () => {
+    toggleArchivedView();
+});
+
+function showManageScreen() {
+    showScreen('manage-screen');
+    appState.showArchivedQuestions = false;
+    renderQuestionsList();
+}
+
+function toggleArchivedView() {
+    appState.showArchivedQuestions = !appState.showArchivedQuestions;
+    const btn = document.getElementById('toggle-archived-btn');
+    btn.textContent = appState.showArchivedQuestions ? 'アーカイブを非表示' : 'アーカイブを表示';
+    renderQuestionsList();
+}
+
+function renderQuestionsList() {
+    const container = document.getElementById('questions-list');
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+    const archivedQuestions = appState.questions.filter(q => q.archived);
+
+    // 統計更新
+    document.getElementById('active-count').textContent = activeQuestions.length;
+    document.getElementById('archived-count').textContent = archivedQuestions.length;
+
+    // 表示する問題を選択
+    let questionsToShow = [...activeQuestions];
+    if (appState.showArchivedQuestions) {
+        questionsToShow = [...activeQuestions, ...archivedQuestions];
+    }
+
+    // 問題がない場合
+    if (questionsToShow.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-text">問題がありません</div>
+            </div>
+        `;
+        return;
+    }
+
+    // 問題リストを生成
+    container.innerHTML = questionsToShow.map(q => {
+        const difficultyLabels = {
+            'basic': '基礎',
+            'standard': '標準',
+            'advanced': '応用'
+        };
+
+        const choicesHtml = q.choices.map((choice, index) => {
+            const isCorrect = index === q.correctIndex;
+            return `
+                <div class="question-item-choice ${isCorrect ? 'correct-answer' : ''}">
+                    ${isCorrect ? '✓ ' : ''}${choice}
+                </div>
+            `;
+        }).join('');
+
+        const lastReviewedText = q.lastReviewed
+            ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
+            : '未回答';
+
+        return `
+            <div class="question-item ${q.archived ? 'archived' : ''}" data-question-id="${q.id}">
+                <div class="question-item-header">
+                    <div class="question-item-title">${q.question}</div>
+                    <div class="question-item-difficulty ${q.difficulty}">
+                        ${difficultyLabels[q.difficulty] || '基礎'}
+                    </div>
+                </div>
+
+                <div class="question-item-content">
+                    <div class="question-item-section">
+                        <div class="question-item-label">選択肢</div>
+                        <div class="question-item-choices">
+                            ${choicesHtml}
+                        </div>
+                    </div>
+
+                    <div class="question-item-section">
+                        <div class="question-item-label">解説</div>
+                        <div class="question-item-text">${q.explanation}</div>
+                    </div>
+                </div>
+
+                <div class="question-item-stats">
+                    <div class="question-item-stat">
+                        📅 最終復習: ${lastReviewedText}
+                    </div>
+                    <div class="question-item-stat">
+                        🔄 復習回数: ${q.reviewCount}回
+                    </div>
+                    <div class="question-item-stat">
+                        📊 難易度係数: ${q.easeFactor.toFixed(1)}
+                    </div>
+                </div>
+
+                <div class="question-item-actions">
+                    ${q.archived
+                        ? `<button class="btn btn-warning btn-small" onclick="unarchiveQuestion(${q.id})">復元</button>`
+                        : `<button class="btn btn-warning btn-small" onclick="archiveQuestion(${q.id})">アーカイブ</button>`
+                    }
+                    <button class="btn btn-danger btn-small" onclick="deleteQuestion(${q.id})">削除</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function archiveQuestion(id) {
+    if (!confirm('この問題をアーカイブしますか？\n（アーカイブした問題は出題されなくなります）')) {
+        return;
+    }
+
+    const question = appState.questions.find(q => q.id === id);
+    if (question) {
+        question.archived = true;
+        saveQuestions();
+        renderQuestionsList();
+    }
+}
+
+function unarchiveQuestion(id) {
+    const question = appState.questions.find(q => q.id === id);
+    if (question) {
+        question.archived = false;
+        saveQuestions();
+        renderQuestionsList();
+    }
+}
+
+function deleteQuestion(id) {
+    if (!confirm('この問題を完全に削除しますか？\n（この操作は取り消せません）')) {
+        return;
+    }
+
+    const index = appState.questions.findIndex(q => q.id === id);
+    if (index !== -1) {
+        appState.questions.splice(index, 1);
+        saveQuestions();
+        renderQuestionsList();
+    }
+}
+
+// ========================================
 // ユーティリティ関数
 // ========================================
 function shuffleArray(array) {
@@ -669,5 +834,17 @@ function shuffleArray(array) {
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // 既存の問題にarchivedフラグを追加（後方互換性）
+    let needsSave = false;
+    appState.questions.forEach(q => {
+        if (q.archived === undefined) {
+            q.archived = false;
+            needsSave = true;
+        }
+    });
+    if (needsSave) {
+        saveQuestions();
+    }
+
     initHomeScreen();
 });

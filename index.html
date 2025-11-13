@@ -54,6 +54,10 @@
                     今日の学習を始める
                     <span id="today-quiz-count"></span>
                 </button>
+
+                <button id="manage-btn" class="btn btn-secondary btn-large">
+                    📝 問題を管理
+                </button>
             </div>
         </div>
 
@@ -136,6 +140,29 @@
                 <div class="result-actions">
                     <button id="continue-btn" class="btn btn-primary btn-large">続ける</button>
                     <button id="home-btn" class="btn btn-secondary">ホームへ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 問題管理画面 -->
+        <div id="manage-screen" class="screen">
+            <div class="container">
+                <div class="manage-header">
+                    <button id="back-to-home-btn" class="btn-text">← ホームへ</button>
+                    <h1 class="manage-title">📝 問題管理</h1>
+                </div>
+
+                <div class="manage-controls">
+                    <div class="manage-stats">
+                        <span id="active-count">0</span>問 (アーカイブ: <span id="archived-count">0</span>問)
+                    </div>
+                    <button id="toggle-archived-btn" class="btn btn-secondary">
+                        アーカイブを表示
+                    </button>
+                </div>
+
+                <div id="questions-list" class="questions-list">
+                    <!-- 問題リストはJavaScriptで動的に生成 -->
                 </div>
             </div>
         </div>
