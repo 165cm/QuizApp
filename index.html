@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>科学的勉強法クイズアプリ</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- ホーム画面 -->
+        <div id="home-screen" class="screen active">
+            <div class="container">
+                <div class="header">
+                    <h1 class="logo">📚 QuizMaster</h1>
+                    <div class="streak-badge">
+                        <span class="fire-icon">🔥</span>
+                        <span id="streak-count">0</span>
+                        <span class="streak-label">日連続</span>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">総問題数</div>
+                        <div class="stat-value" id="total-questions">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">正解率</div>
+                        <div class="stat-value" id="accuracy-rate">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">復習待ち</div>
+                        <div class="stat-value" id="review-count">0</div>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <h2>新しい教材を追加</h2>
+                    <div class="upload-box">
+                        <input type="file" id="pdf-input" accept=".pdf" hidden>
+                        <label for="pdf-input" class="upload-label">
+                            <div class="upload-icon">📄</div>
+                            <div class="upload-text">PDFファイルを選択</div>
+                            <div class="upload-subtext">クリックしてファイルを選択</div>
+                        </label>
+                        <div id="file-name" class="file-name"></div>
+                    </div>
+                    <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
+                </div>
+
+                <button id="start-quiz-btn" class="btn btn-success btn-large" disabled>
+                    今日の学習を始める
+                    <span id="today-quiz-count"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 生成中画面 -->
+        <div id="generating-screen" class="screen">
+            <div class="container center">
+                <div class="spinner"></div>
+                <h2>クイズを生成中...</h2>
+                <p id="generating-status">PDFを読み込んでいます...</p>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- クイズ画面 -->
+        <div id="quiz-screen" class="screen">
+            <div class="container">
+                <div class="quiz-header">
+                    <button id="quit-btn" class="btn-text">✕ 終了</button>
+                    <div class="progress-info">
+                        <span id="current-question">1</span> / <span id="total-quiz-questions">10</span>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div id="quiz-progress" class="progress-fill"></div>
+                </div>
+
+                <div class="difficulty-badge" id="difficulty-badge">基礎</div>
+
+                <div class="question-card">
+                    <h2 id="question-text" class="question-text"></h2>
+                    <div id="choices-container" class="choices-container"></div>
+                </div>
+
+                <button id="check-answer-btn" class="btn btn-primary btn-large" disabled>答えを確認</button>
+
+                <!-- フィードバック -->
+                <div id="feedback" class="feedback hidden">
+                    <div class="feedback-header">
+                        <span id="feedback-icon"></span>
+                        <span id="feedback-title"></span>
+                    </div>
+                    <div id="feedback-explanation" class="feedback-explanation"></div>
+                    <button id="next-question-btn" class="btn btn-primary btn-large">次へ</button>
+                </div>
+
+                <!-- 10秒休憩 -->
+                <div id="break-screen" class="break-screen hidden">
+                    <div class="break-content">
+                        <h2>✨ 深呼吸してリラックス</h2>
+                        <p class="break-text">脳が情報を整理しています...</p>
+                        <div class="break-timer" id="break-timer">10</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果画面 -->
+        <div id="result-screen" class="screen">
+            <div class="container center">
+                <div class="result-icon" id="result-icon">🎉</div>
+                <h1 id="result-title">素晴らしい!</h1>
+                <p id="result-message"></p>
+
+                <div class="result-stats">
+                    <div class="result-stat">
+                        <div class="result-stat-label">正解数</div>
+                        <div class="result-stat-value">
+                            <span id="correct-count">0</span> / <span id="result-total">10</span>
+                        </div>
+                    </div>
+                    <div class="result-stat">
+                        <div class="result-stat-label">正解率</div>
+                        <div class="result-stat-value" id="result-accuracy">0%</div>
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <button id="continue-btn" class="btn btn-primary btn-large">続ける</button>
+                    <button id="home-btn" class="btn btn-secondary">ホームへ</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- APIキー入力モーダル -->
+        <div id="api-key-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>OpenAI APIキー</h2>
+                <p>クイズを生成するにはOpenAI APIキーが必要です。</p>
+                <a href="https://platform.openai.com/api-keys" target="_blank" class="link">APIキーを取得する</a>
+                <input type="password" id="api-key-input" class="input" placeholder="sk-...">
+                <div class="modal-actions">
+                    <button id="cancel-api-key" class="btn btn-secondary">キャンセル</button>
+                    <button id="save-api-key" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PDF.jsのworkerを設定
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
