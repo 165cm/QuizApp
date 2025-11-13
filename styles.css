@@ -131,6 +131,45 @@ body {
     color: #333;
 }
 
+/* モード切り替えタブ */
+.mode-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 12px 20px;
+    background: #f3f4f6;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #666;
+}
+
+.mode-tab:hover {
+    background: #e5e7eb;
+}
+
+.mode-tab.active {
+    background: #dbeafe;
+    border-color: #667eea;
+    color: #667eea;
+}
+
+/* 入力モード */
+.input-mode {
+    display: none;
+}
+
+.input-mode.active {
+    display: block;
+}
+
 .upload-box {
     border: 2px dashed #667eea;
     border-radius: 15px;
@@ -173,6 +212,46 @@ body {
     font-size: 14px;
     color: #667eea;
     font-weight: 600;
+}
+
+/* テキスト入力ボックス */
+.text-input-box {
+    position: relative;
+}
+
+.text-input {
+    width: 100%;
+    min-height: 300px;
+    padding: 20px;
+    border: 2px solid #e5e7eb;
+    border-radius: 15px;
+    font-size: 16px;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.text-input:focus {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.text-input::placeholder {
+    color: #9ca3af;
+}
+
+.char-count {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    font-size: 14px;
+    color: #9ca3af;
+    background: white;
+    padding: 5px 10px;
+    border-radius: 8px;
+    pointer-events: none;
 }
 
 /* ボタン */

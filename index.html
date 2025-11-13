@@ -38,15 +38,34 @@
 
                 <div class="upload-section">
                     <h2>新しい教材を追加</h2>
-                    <div class="upload-box">
-                        <input type="file" id="pdf-input" accept=".pdf" hidden>
-                        <label for="pdf-input" class="upload-label">
-                            <div class="upload-icon">📄</div>
-                            <div class="upload-text">PDFファイルを選択</div>
-                            <div class="upload-subtext">クリックしてファイルを選択</div>
-                        </label>
-                        <div id="file-name" class="file-name"></div>
+
+                    <!-- モード切り替えタブ -->
+                    <div class="mode-tabs">
+                        <button id="pdf-mode-tab" class="mode-tab active">📄 PDF</button>
+                        <button id="text-mode-tab" class="mode-tab">📝 テキスト</button>
                     </div>
+
+                    <!-- PDFモード -->
+                    <div id="pdf-mode" class="input-mode active">
+                        <div class="upload-box">
+                            <input type="file" id="pdf-input" accept=".pdf" hidden>
+                            <label for="pdf-input" class="upload-label">
+                                <div class="upload-icon">📄</div>
+                                <div class="upload-text">PDFファイルを選択</div>
+                                <div class="upload-subtext">クリックしてファイルを選択</div>
+                            </label>
+                            <div id="file-name" class="file-name"></div>
+                        </div>
+                    </div>
+
+                    <!-- テキストモード -->
+                    <div id="text-mode" class="input-mode">
+                        <div class="text-input-box">
+                            <textarea id="text-input" class="text-input" placeholder="学習したいテキストをここに貼り付けてください...&#10;&#10;例：&#10;・教科書の内容&#10;・授業ノート&#10;・参考資料&#10;&#10;より多くのテキストから、より質の高いクイズが生成されます。"></textarea>
+                            <div id="char-count" class="char-count">0文字</div>
+                        </div>
+                    </div>
+
                     <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
                 </div>
 

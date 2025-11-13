@@ -99,35 +99,104 @@ function getTodayQuizCount() {
 }
 
 // ========================================
-// PDF処理
+// モード切り替え & 入力処理
 // ========================================
+let currentMode = 'pdf'; // 'pdf' or 'text'
+
+// モード切り替えタブ
+document.getElementById('pdf-mode-tab').addEventListener('click', function() {
+    switchMode('pdf');
+});
+
+document.getElementById('text-mode-tab').addEventListener('click', function() {
+    switchMode('text');
+});
+
+function switchMode(mode) {
+    currentMode = mode;
+
+    // タブの見た目を切り替え
+    const pdfTab = document.getElementById('pdf-mode-tab');
+    const textTab = document.getElementById('text-mode-tab');
+    const pdfMode = document.getElementById('pdf-mode');
+    const textMode = document.getElementById('text-mode');
+
+    if (mode === 'pdf') {
+        pdfTab.classList.add('active');
+        textTab.classList.remove('active');
+        pdfMode.classList.add('active');
+        textMode.classList.remove('active');
+    } else {
+        textTab.classList.add('active');
+        pdfTab.classList.remove('active');
+        textMode.classList.add('active');
+        pdfMode.classList.remove('active');
+    }
+
+    // 生成ボタンの状態を更新
+    updateGenerateButton();
+}
+
+// PDF入力
 document.getElementById('pdf-input').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
         document.getElementById('file-name').textContent = file.name;
-        document.getElementById('generate-btn').disabled = false;
+        updateGenerateButton();
     }
 });
 
-document.getElementById('generate-btn').addEventListener('click', async function() {
-    const fileInput = document.getElementById('pdf-input');
-    const file = fileInput.files[0];
+// テキスト入力
+document.getElementById('text-input').addEventListener('input', function(e) {
+    const text = e.target.value;
+    const charCount = text.length;
+    document.getElementById('char-count').textContent = charCount + '文字';
+    updateGenerateButton();
+});
 
-    if (!file) {
-        alert('PDFファイルを選択してください');
-        return;
+function updateGenerateButton() {
+    const generateBtn = document.getElementById('generate-btn');
+
+    if (currentMode === 'pdf') {
+        const file = document.getElementById('pdf-input').files[0];
+        generateBtn.disabled = !file;
+    } else {
+        const text = document.getElementById('text-input').value.trim();
+        generateBtn.disabled = text.length < 100;
     }
+}
 
+// クイズ生成ボタン
+document.getElementById('generate-btn').addEventListener('click', async function() {
     // APIキーの確認
     if (!appState.apiKey) {
         showApiKeyModal();
         return;
     }
 
-    await generateQuiz(file);
+    if (currentMode === 'pdf') {
+        const fileInput = document.getElementById('pdf-input');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('PDFファイルを選択してください');
+            return;
+        }
+
+        await generateQuizFromPDF(file);
+    } else {
+        const text = document.getElementById('text-input').value.trim();
+
+        if (text.length < 100) {
+            alert('100文字以上のテキストを入力してください');
+            return;
+        }
+
+        await generateQuizFromText(text);
+    }
 });
 
-async function generateQuiz(file) {
+async function generateQuizFromPDF(file) {
     showScreen('generating-screen');
 
     try {
@@ -154,6 +223,44 @@ async function generateQuiz(file) {
             showScreen('home-screen');
             initHomeScreen();
             alert(`${questions.length}問のクイズを生成しました!`);
+
+            // 入力をリセット
+            document.getElementById('pdf-input').value = '';
+            document.getElementById('file-name').textContent = '';
+            updateGenerateButton();
+        }, 500);
+
+    } catch (error) {
+        console.error('クイズ生成エラー:', error);
+        alert('クイズの生成に失敗しました: ' + error.message);
+        showScreen('home-screen');
+    }
+}
+
+async function generateQuizFromText(text) {
+    showScreen('generating-screen');
+
+    try {
+        // クイズ生成
+        updateGeneratingStatus('AIがクイズを生成中...', 50);
+        const questions = await generateQuestionsWithAI(text);
+
+        // 保存
+        updateGeneratingStatus('保存しています...', 90);
+        appState.questions = [...appState.questions, ...questions];
+        saveQuestions();
+
+        updateGeneratingStatus('完了!', 100);
+
+        setTimeout(() => {
+            showScreen('home-screen');
+            initHomeScreen();
+            alert(`${questions.length}問のクイズを生成しました!`);
+
+            // 入力をリセット
+            document.getElementById('text-input').value = '';
+            document.getElementById('char-count').textContent = '0文字';
+            updateGenerateButton();
         }, 500);
 
     } catch (error) {
