@@ -217,7 +217,7 @@ ${truncatedText}`;
             'Authorization': `Bearer ${appState.apiKey}`
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-5-mini', // GPT-5 mini: 明確に定義されたタスクに最適、価格$0.250/$2.000で最もコスパが高い
             messages: [
                 {
                     role: 'system',
