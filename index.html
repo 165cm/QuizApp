@@ -156,9 +156,47 @@
                     <div class="manage-stats">
                         <span id="active-count">0</span>問 (アーカイブ: <span id="archived-count">0</span>問)
                     </div>
-                    <button id="toggle-archived-btn" class="btn btn-secondary">
+                    <button id="toggle-archived-btn" class="btn btn-secondary btn-small">
                         アーカイブを表示
                     </button>
+                </div>
+
+                <!-- フィルター -->
+                <div class="filter-section">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label class="filter-label">難易度</label>
+                            <select id="filter-difficulty" class="filter-select">
+                                <option value="all">すべて</option>
+                                <option value="basic">基礎</option>
+                                <option value="standard">標準</option>
+                                <option value="advanced">応用</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">正解率</label>
+                            <select id="filter-accuracy" class="filter-select">
+                                <option value="all">すべて</option>
+                                <option value="high">80%以上</option>
+                                <option value="medium">50-80%</option>
+                                <option value="low">50%未満</option>
+                                <option value="unanswered">未回答</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">ソース</label>
+                            <select id="filter-source" class="filter-select">
+                                <option value="all">すべて</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-row">
+                        <div class="filter-group filter-group-full">
+                            <label class="filter-label">タグで検索</label>
+                            <input type="text" id="filter-tags-input" class="filter-input" placeholder="タグを入力してEnter">
+                            <div id="active-tags" class="active-tags"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="questions-list" class="questions-list">

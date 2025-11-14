@@ -4,6 +4,7 @@
 let appState = {
     apiKey: localStorage.getItem('openai_api_key') || '',
     questions: JSON.parse(localStorage.getItem('questions') || '[]'),
+    sources: JSON.parse(localStorage.getItem('sources') || '[]'),
     userStats: JSON.parse(localStorage.getItem('user_stats') || JSON.stringify({
         totalAnswered: 0,
         correctAnswers: 0,
@@ -17,7 +18,12 @@ let appState = {
         total: 0
     },
     selectedAnswer: null,
-    showArchivedQuestions: false
+    showArchivedQuestions: false,
+    filters: {
+        difficulty: 'all',
+        accuracy: 'all',
+        tags: []
+    }
 };
 
 // ========================================
@@ -143,14 +149,29 @@ async function generateQuiz(file) {
             throw new Error('PDFからテキストを抽出できませんでした');
         }
 
+        // ソース情報を作成
+        const sourceId = Date.now() + Math.random();
+        const source = {
+            id: sourceId,
+            name: file.name,
+            uploadDate: new Date().toISOString(),
+            questionCount: 0,
+            description: ''
+        };
+
         // クイズ生成
         updateGeneratingStatus('AIがクイズを生成中...', 50);
-        const questions = await generateQuestionsWithAI(text);
+        const questions = await generateQuestionsWithAI(text, sourceId);
+
+        // ソース情報を更新
+        source.questionCount = questions.length;
 
         // 保存
         updateGeneratingStatus('保存しています...', 90);
         appState.questions = [...appState.questions, ...questions];
+        appState.sources = [...appState.sources, source];
         saveQuestions();
+        saveSources();
 
         updateGeneratingStatus('完了!', 100);
 
@@ -188,7 +209,7 @@ async function extractTextFromPDF(file) {
     return fullText;
 }
 
-async function generateQuestionsWithAI(text) {
+async function generateQuestionsWithAI(text, sourceId) {
     const maxChars = 12000; // GPT-4o-miniのトークン制限を考慮
     const truncatedText = text.slice(0, maxChars);
 
@@ -197,8 +218,9 @@ async function generateQuestionsWithAI(text) {
 要件:
 1. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
 2. 選択肢には「よくある誤解」を含める(実は間違えた効果)
-3. JSON形式で出力
-4. 日本語で出力
+3. 各問題に関連する5つのタグを生成（キーワード、トピック、概念など）
+4. JSON形式で出力
+5. 日本語で出力
 
 出力形式:
 [
@@ -207,7 +229,8 @@ async function generateQuestionsWithAI(text) {
     "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
     "correctIndex": 0,
     "explanation": "解説文",
-    "difficulty": "basic"
+    "difficulty": "basic",
+    "tags": ["タグ1", "タグ2", "タグ3", "タグ4", "タグ5"]
   }
 ]
 
@@ -225,7 +248,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成します。'
+                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成します。各問題には検索しやすいように適切なタグを付けてください。'
                 },
                 {
                     role: 'user',
@@ -260,12 +283,16 @@ ${truncatedText}`;
     return questions.map(q => ({
         ...q,
         id: Date.now() + Math.random(),
+        sourceId: sourceId,
         lastReviewed: null,
         reviewCount: 0,
+        correctCount: 0,
+        incorrectCount: 0,
         easeFactor: 2.5,
         interval: 0,
         nextReview: null,
-        archived: false
+        archived: false,
+        tags: [...(q.tags || []), '', '', '', '', ''] // AI生成タグ + 5つの空き枠
     }));
 }
 
@@ -458,7 +485,7 @@ function checkAnswer() {
     explanation.textContent = question.explanation;
     feedback.classList.remove('hidden');
 
-    // 間隔反復アルゴリズム適用
+    // 間隔反復アルゴリズムと正解率統計の更新
     updateQuestionStats(question, isCorrect);
 
     // ボタン非表示
@@ -579,6 +606,13 @@ function updateQuestionStats(question, isCorrect) {
     originalQuestion.lastReviewed = new Date().toISOString();
     originalQuestion.reviewCount++;
 
+    // 正解率統計を更新
+    if (isCorrect) {
+        originalQuestion.correctCount = (originalQuestion.correctCount || 0) + 1;
+    } else {
+        originalQuestion.incorrectCount = (originalQuestion.incorrectCount || 0) + 1;
+    }
+
     if (isCorrect) {
         // 正解: 間隔を延ばす
         if (originalQuestion.interval === 0) {
@@ -610,6 +644,10 @@ function saveQuestions() {
 
 function saveUserStats() {
     localStorage.setItem('user_stats', JSON.stringify(appState.userStats));
+}
+
+function saveSources() {
+    localStorage.setItem('sources', JSON.stringify(appState.sources));
 }
 
 // ========================================
@@ -676,9 +714,44 @@ document.getElementById('toggle-archived-btn').addEventListener('click', () => {
     toggleArchivedView();
 });
 
+// フィルターのイベントリスナー
+document.getElementById('filter-difficulty').addEventListener('change', (e) => {
+    appState.filters.difficulty = e.target.value;
+    renderQuestionsList();
+});
+
+document.getElementById('filter-accuracy').addEventListener('change', (e) => {
+    appState.filters.accuracy = e.target.value;
+    renderQuestionsList();
+});
+
+document.getElementById('filter-source').addEventListener('change', (e) => {
+    appState.filters.source = e.target.value;
+    renderQuestionsList();
+});
+
+document.getElementById('filter-tags-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && e.target.value.trim()) {
+        const tag = e.target.value.trim();
+        if (!appState.filters.tags.includes(tag)) {
+            appState.filters.tags.push(tag);
+            renderActiveTagsFilter();
+            renderQuestionsList();
+        }
+        e.target.value = '';
+    }
+});
+
 function showManageScreen() {
     showScreen('manage-screen');
     appState.showArchivedQuestions = false;
+    appState.filters = {
+        difficulty: 'all',
+        accuracy: 'all',
+        source: 'all',
+        tags: []
+    };
+    populateSourceFilter();
     renderQuestionsList();
 }
 
@@ -686,6 +759,34 @@ function toggleArchivedView() {
     appState.showArchivedQuestions = !appState.showArchivedQuestions;
     const btn = document.getElementById('toggle-archived-btn');
     btn.textContent = appState.showArchivedQuestions ? 'アーカイブを非表示' : 'アーカイブを表示';
+    renderQuestionsList();
+}
+
+function populateSourceFilter() {
+    const select = document.getElementById('filter-source');
+    select.innerHTML = '<option value="all">すべて</option>';
+
+    appState.sources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source.id;
+        option.textContent = source.name;
+        select.appendChild(option);
+    });
+}
+
+function renderActiveTagsFilter() {
+    const container = document.getElementById('active-tags');
+    container.innerHTML = appState.filters.tags.map(tag => `
+        <div class="tag-badge">
+            ${tag}
+            <span class="tag-badge-remove" onclick="removeTagFilter('${tag}')">✕</span>
+        </div>
+    `).join('');
+}
+
+function removeTagFilter(tag) {
+    appState.filters.tags = appState.filters.tags.filter(t => t !== tag);
+    renderActiveTagsFilter();
     renderQuestionsList();
 }
 
@@ -704,12 +805,15 @@ function renderQuestionsList() {
         questionsToShow = [...activeQuestions, ...archivedQuestions];
     }
 
+    // フィルタリング
+    questionsToShow = applyFilters(questionsToShow);
+
     // 問題がない場合
     if (questionsToShow.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">📭</div>
-                <div class="empty-state-text">問題がありません</div>
+                <div class="empty-state-text">条件に一致する問題がありません</div>
             </div>
         `;
         return;
@@ -722,6 +826,33 @@ function renderQuestionsList() {
             'standard': '標準',
             'advanced': '応用'
         };
+
+        // 正解率を計算
+        const totalAttempts = (q.correctCount || 0) + (q.incorrectCount || 0);
+        let accuracyPercent = 0;
+        let accuracyClass = 'unanswered';
+        let accuracyText = '未回答';
+
+        if (totalAttempts > 0) {
+            accuracyPercent = Math.round((q.correctCount / totalAttempts) * 100);
+            accuracyText = `${accuracyPercent}%`;
+
+            if (accuracyPercent >= 80) {
+                accuracyClass = 'high';
+            } else if (accuracyPercent >= 50) {
+                accuracyClass = 'medium';
+            } else {
+                accuracyClass = 'low';
+            }
+        }
+
+        // タグ表示（空でないタグのみ）
+        const validTags = (q.tags || []).filter(tag => tag && tag.trim());
+        const tagsHtml = validTags.length > 0 ? `
+            <div class="question-item-tags">
+                ${validTags.map(tag => `<span class="question-item-tag">${tag}</span>`).join('')}
+            </div>
+        ` : '';
 
         const choicesHtml = q.choices.map((choice, index) => {
             const isCorrect = index === q.correctIndex;
@@ -736,14 +867,27 @@ function renderQuestionsList() {
             ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
             : '未回答';
 
+        // ソース名を取得
+        const source = appState.sources.find(s => s.id === q.sourceId);
+        const sourceName = source ? source.name : '不明';
+
         return `
-            <div class="question-item ${q.archived ? 'archived' : ''}" data-question-id="${q.id}">
+            <div class="question-item ${q.archived ? 'archived' : ''}" data-question-id="${q.id}" onclick="toggleQuestionExpand(${q.id})">
                 <div class="question-item-header">
-                    <div class="question-item-title">${q.question}</div>
-                    <div class="question-item-difficulty ${q.difficulty}">
-                        ${difficultyLabels[q.difficulty] || '基礎'}
+                    <div class="question-item-title">
+                        ${q.question}
+                        <span class="question-item-expand-icon">▼</span>
+                    </div>
+                    <div class="question-item-meta">
+                        <div class="question-item-accuracy ${accuracyClass}">
+                            ${accuracyText}
+                        </div>
+                        <div class="question-item-difficulty ${q.difficulty}">
+                            ${difficultyLabels[q.difficulty] || '基礎'}
+                        </div>
                     </div>
                 </div>
+                ${tagsHtml}
 
                 <div class="question-item-content">
                     <div class="question-item-section">
@@ -757,21 +901,27 @@ function renderQuestionsList() {
                         <div class="question-item-label">解説</div>
                         <div class="question-item-text">${q.explanation}</div>
                     </div>
+
+                    <div class="question-item-stats">
+                        <div class="question-item-stat">
+                            📄 ソース: ${sourceName}
+                        </div>
+                        <div class="question-item-stat">
+                            📅 最終復習: ${lastReviewedText}
+                        </div>
+                        <div class="question-item-stat">
+                            🔄 復習回数: ${q.reviewCount}回
+                        </div>
+                        <div class="question-item-stat">
+                            📊 難易度係数: ${q.easeFactor.toFixed(1)}
+                        </div>
+                        <div class="question-item-stat">
+                            ✓ 正解: ${q.correctCount || 0}回 / ✗ 不正解: ${q.incorrectCount || 0}回
+                        </div>
+                    </div>
                 </div>
 
-                <div class="question-item-stats">
-                    <div class="question-item-stat">
-                        📅 最終復習: ${lastReviewedText}
-                    </div>
-                    <div class="question-item-stat">
-                        🔄 復習回数: ${q.reviewCount}回
-                    </div>
-                    <div class="question-item-stat">
-                        📊 難易度係数: ${q.easeFactor.toFixed(1)}
-                    </div>
-                </div>
-
-                <div class="question-item-actions">
+                <div class="question-item-actions" onclick="event.stopPropagation()">
                     ${q.archived
                         ? `<button class="btn btn-warning btn-small" onclick="unarchiveQuestion(${q.id})">復元</button>`
                         : `<button class="btn btn-warning btn-small" onclick="archiveQuestion(${q.id})">アーカイブ</button>`
@@ -781,6 +931,69 @@ function renderQuestionsList() {
             </div>
         `;
     }).join('');
+}
+
+function applyFilters(questions) {
+    let filtered = [...questions];
+
+    // 難易度フィルター
+    if (appState.filters.difficulty !== 'all') {
+        filtered = filtered.filter(q => q.difficulty === appState.filters.difficulty);
+    }
+
+    // 正解率フィルター
+    if (appState.filters.accuracy !== 'all') {
+        filtered = filtered.filter(q => {
+            const totalAttempts = (q.correctCount || 0) + (q.incorrectCount || 0);
+
+            if (appState.filters.accuracy === 'unanswered') {
+                return totalAttempts === 0;
+            }
+
+            if (totalAttempts === 0) return false;
+
+            const accuracy = (q.correctCount / totalAttempts) * 100;
+
+            switch (appState.filters.accuracy) {
+                case 'high':
+                    return accuracy >= 80;
+                case 'medium':
+                    return accuracy >= 50 && accuracy < 80;
+                case 'low':
+                    return accuracy < 50;
+                default:
+                    return true;
+            }
+        });
+    }
+
+    // ソースフィルター
+    if (appState.filters.source !== 'all') {
+        filtered = filtered.filter(q => q.sourceId == appState.filters.source);
+    }
+
+    // タグフィルター
+    if (appState.filters.tags.length > 0) {
+        filtered = filtered.filter(q => {
+            const questionTags = (q.tags || []).map(t => t.toLowerCase());
+            return appState.filters.tags.every(filterTag =>
+                questionTags.some(qTag => qTag.includes(filterTag.toLowerCase()))
+            );
+        });
+    }
+
+    return filtered;
+}
+
+function toggleQuestionExpand(id) {
+    const questionItem = document.querySelector(`[data-question-id="${id}"]`);
+    if (questionItem) {
+        questionItem.classList.toggle('expanded');
+        const icon = questionItem.querySelector('.question-item-expand-icon');
+        if (icon) {
+            icon.textContent = questionItem.classList.contains('expanded') ? '▲' : '▼';
+        }
+    }
 }
 
 function archiveQuestion(id) {
@@ -834,14 +1047,51 @@ function shuffleArray(array) {
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 既存の問題にarchivedフラグを追加（後方互換性）
+    // 既存のデータに新しいフィールドを追加（後方互換性）
     let needsSave = false;
+
     appState.questions.forEach(q => {
+        // archivedフラグを追加
         if (q.archived === undefined) {
             q.archived = false;
             needsSave = true;
         }
+
+        // tagsを追加（5つのAI生成タグ + 5つの空き枠）
+        if (!q.tags) {
+            q.tags = ['', '', '', '', '', '', '', '', '', ''];
+            needsSave = true;
+        }
+
+        // 正解率統計を追加
+        if (q.correctCount === undefined) {
+            q.correctCount = 0;
+            needsSave = true;
+        }
+        if (q.incorrectCount === undefined) {
+            q.incorrectCount = 0;
+            needsSave = true;
+        }
+
+        // sourceIdを追加（既存の問題には不明なソースを割り当て）
+        if (!q.sourceId) {
+            q.sourceId = 0; // 0 = 不明なソース
+            needsSave = true;
+        }
     });
+
+    // 不明なソースを作成（sourceId = 0の問題がある場合）
+    if (appState.questions.some(q => q.sourceId === 0) && !appState.sources.some(s => s.id === 0)) {
+        appState.sources.unshift({
+            id: 0,
+            name: '不明なソース（既存の問題）',
+            uploadDate: new Date().toISOString(),
+            questionCount: appState.questions.filter(q => q.sourceId === 0).length,
+            description: ''
+        });
+        saveSources();
+    }
+
     if (needsSave) {
         saveQuestions();
     }
