@@ -110,6 +110,34 @@ function getTodayQuizCount() {
 }
 
 // ========================================
+// モード切り替え
+// ========================================
+document.getElementById('pdf-mode-btn').addEventListener('click', () => {
+    switchMode('pdf');
+});
+
+document.getElementById('text-mode-btn').addEventListener('click', () => {
+    switchMode('text');
+});
+
+function switchMode(mode) {
+    // タブの切り替え
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    if (mode === 'pdf') {
+        document.getElementById('pdf-mode-btn').classList.add('active');
+        document.getElementById('pdf-mode').classList.remove('hidden');
+        document.getElementById('text-mode').classList.add('hidden');
+    } else {
+        document.getElementById('text-mode-btn').classList.add('active');
+        document.getElementById('text-mode').classList.remove('hidden');
+        document.getElementById('pdf-mode').classList.add('hidden');
+    }
+}
+
+// ========================================
 // PDF処理
 // ========================================
 document.getElementById('pdf-input').addEventListener('change', function(e) {
@@ -135,10 +163,41 @@ document.getElementById('generate-btn').addEventListener('click', async function
         return;
     }
 
-    await generateQuiz(file);
+    await generateQuizFromPDF(file);
 });
 
-async function generateQuiz(file) {
+// ========================================
+// テキスト処理
+// ========================================
+document.getElementById('text-input').addEventListener('input', function(e) {
+    const text = e.target.value;
+    const charCount = text.length;
+
+    // 文字数表示を更新
+    document.getElementById('text-char-count').textContent = charCount;
+
+    // 生成ボタンの有効/無効を切り替え（最低100文字必要）
+    document.getElementById('generate-from-text-btn').disabled = charCount < 100;
+});
+
+document.getElementById('generate-from-text-btn').addEventListener('click', async function() {
+    const text = document.getElementById('text-input').value.trim();
+
+    if (!text || text.length < 100) {
+        alert('テキストを100文字以上入力してください');
+        return;
+    }
+
+    // APIキーの確認
+    if (!appState.apiKey) {
+        showApiKeyModal();
+        return;
+    }
+
+    await generateQuizFromText(text);
+});
+
+async function generateQuizFromPDF(file) {
     showScreen('generating-screen');
 
     try {
@@ -157,7 +216,7 @@ async function generateQuiz(file) {
             name: file.name,
             uploadDate: new Date().toISOString(),
             questionCount: 0,
-            description: ''
+            description: 'PDFから生成'
         };
 
         // クイズ生成
@@ -179,6 +238,58 @@ async function generateQuiz(file) {
         setTimeout(() => {
             showScreen('home-screen');
             initHomeScreen();
+            // 入力をクリア
+            document.getElementById('pdf-input').value = '';
+            document.getElementById('file-name').textContent = '';
+            document.getElementById('generate-btn').disabled = true;
+            alert(`${questions.length}問のクイズを生成しました!`);
+        }, 500);
+
+    } catch (error) {
+        console.error('クイズ生成エラー:', error);
+        alert('クイズの生成に失敗しました: ' + error.message);
+        showScreen('home-screen');
+    }
+}
+
+async function generateQuizFromText(text) {
+    showScreen('generating-screen');
+
+    try {
+        // ソース情報を作成
+        const sourceId = Date.now() + Math.random();
+        const textPreview = text.substring(0, 50) + (text.length > 50 ? '...' : '');
+        const source = {
+            id: sourceId,
+            name: `テキスト入力 (${new Date().toLocaleDateString('ja-JP')})`,
+            uploadDate: new Date().toISOString(),
+            questionCount: 0,
+            description: textPreview
+        };
+
+        // クイズ生成
+        updateGeneratingStatus('AIがクイズを生成中...', 50);
+        const questions = await generateQuestionsWithAI(text, sourceId);
+
+        // ソース情報を更新
+        source.questionCount = questions.length;
+
+        // 保存
+        updateGeneratingStatus('保存しています...', 90);
+        appState.questions = [...appState.questions, ...questions];
+        appState.sources = [...appState.sources, source];
+        saveQuestions();
+        saveSources();
+
+        updateGeneratingStatus('完了!', 100);
+
+        setTimeout(() => {
+            showScreen('home-screen');
+            initHomeScreen();
+            // 入力をクリア
+            document.getElementById('text-input').value = '';
+            document.getElementById('text-char-count').textContent = '0';
+            document.getElementById('generate-from-text-btn').disabled = true;
             alert(`${questions.length}問のクイズを生成しました!`);
         }, 500);
 

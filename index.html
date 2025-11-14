@@ -38,16 +38,40 @@
 
                 <div class="upload-section">
                     <h2>新しい教材を追加</h2>
-                    <div class="upload-box">
-                        <input type="file" id="pdf-input" accept=".pdf" hidden>
-                        <label for="pdf-input" class="upload-label">
-                            <div class="upload-icon">📄</div>
-                            <div class="upload-text">PDFファイルを選択</div>
-                            <div class="upload-subtext">クリックしてファイルを選択</div>
-                        </label>
-                        <div id="file-name" class="file-name"></div>
+
+                    <!-- モード切り替えタブ -->
+                    <div class="mode-tabs">
+                        <button id="pdf-mode-btn" class="mode-tab active">📄 PDFから生成</button>
+                        <button id="text-mode-btn" class="mode-tab">📝 テキストから生成</button>
                     </div>
-                    <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
+
+                    <!-- PDFモード -->
+                    <div id="pdf-mode" class="input-mode">
+                        <div class="upload-box">
+                            <input type="file" id="pdf-input" accept=".pdf" hidden>
+                            <label for="pdf-input" class="upload-label">
+                                <div class="upload-icon">📄</div>
+                                <div class="upload-text">PDFファイルを選択</div>
+                                <div class="upload-subtext">クリックしてファイルを選択</div>
+                            </label>
+                            <div id="file-name" class="file-name"></div>
+                        </div>
+                        <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
+                    </div>
+
+                    <!-- テキストモード -->
+                    <div id="text-mode" class="input-mode hidden">
+                        <div class="text-input-container">
+                            <textarea id="text-input"
+                                      class="text-input"
+                                      placeholder="学習したいテキストをここに貼り付けてください&#10;&#10;例：&#10;- 教科書の一部&#10;- 講義ノート&#10;- Webサイトのコンテンツ&#10;&#10;最大12,000文字まで対応"
+                                      maxlength="12000"></textarea>
+                            <div class="text-counter">
+                                <span id="text-char-count">0</span> / 12,000 文字
+                            </div>
+                        </div>
+                        <button id="generate-from-text-btn" class="btn btn-primary" disabled>クイズを生成</button>
+                    </div>
                 </div>
 
                 <button id="start-quiz-btn" class="btn btn-success btn-large" disabled>
