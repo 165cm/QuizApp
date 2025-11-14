@@ -80,11 +80,13 @@
                     <button id="quit-btn" class="btn-text">✕ 終了</button>
                     <div class="progress-info">
                         <span id="current-question">1</span> / <span id="total-quiz-questions">10</span>
+                        <span id="session-accuracy" class="session-accuracy"></span>
                     </div>
                 </div>
 
                 <div class="progress-bar">
                     <div id="quiz-progress" class="progress-fill"></div>
+                    <div id="quiz-progress-correct" class="progress-fill-correct"></div>
                 </div>
 
                 <div class="difficulty-badge" id="difficulty-badge">基礎</div>
@@ -93,8 +95,6 @@
                     <h2 id="question-text" class="question-text"></h2>
                     <div id="choices-container" class="choices-container"></div>
                 </div>
-
-                <button id="check-answer-btn" class="btn btn-primary btn-large" disabled>答えを確認</button>
 
                 <!-- フィードバック -->
                 <div id="feedback" class="feedback hidden">
@@ -155,10 +155,19 @@
                 <div class="manage-controls">
                     <div class="manage-stats">
                         <span id="active-count">0</span>問 (アーカイブ: <span id="archived-count">0</span>問)
+                        <span id="selected-count" class="selected-count hidden"> | 選択中: 0問</span>
                     </div>
-                    <button id="toggle-archived-btn" class="btn btn-secondary btn-small">
-                        アーカイブを表示
-                    </button>
+                    <div class="manage-actions">
+                        <button id="toggle-archived-btn" class="btn btn-secondary btn-small">
+                            アーカイブを表示
+                        </button>
+                        <button id="bulk-delete-btn" class="btn btn-danger btn-small hidden">
+                            選択を削除
+                        </button>
+                        <button id="delete-all-btn" class="btn btn-danger btn-small">
+                            全問削除
+                        </button>
+                    </div>
                 </div>
 
                 <!-- フィルター -->

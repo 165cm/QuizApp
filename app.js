@@ -23,7 +23,8 @@ let appState = {
         difficulty: 'all',
         accuracy: 'all',
         tags: []
-    }
+    },
+    selectedQuestions: new Set()
 };
 
 // ========================================
@@ -392,8 +393,19 @@ function displayQuestion() {
     // プログレス更新
     document.getElementById('current-question').textContent = appState.currentQuestionIndex + 1;
     document.getElementById('total-quiz-questions').textContent = appState.currentQuiz.length;
-    const progress = ((appState.currentQuestionIndex + 1) / appState.currentQuiz.length) * 100;
-    document.getElementById('quiz-progress').style.width = progress + '%';
+
+    const totalProgress = ((appState.currentQuestionIndex + 1) / appState.currentQuiz.length) * 100;
+    const correctProgress = (appState.currentSession.correct / appState.currentQuiz.length) * 100;
+    document.getElementById('quiz-progress').style.width = totalProgress + '%';
+    document.getElementById('quiz-progress-correct').style.width = correctProgress + '%';
+
+    // 正解率表示
+    if (appState.currentSession.total > 0) {
+        const accuracy = Math.round((appState.currentSession.correct / appState.currentSession.total) * 100);
+        document.getElementById('session-accuracy').textContent = `正解率: ${accuracy}%`;
+    } else {
+        document.getElementById('session-accuracy').textContent = '';
+    }
 
     // 難易度バッジ
     const badge = document.getElementById('difficulty-badge');
@@ -415,35 +427,24 @@ function displayQuestion() {
         const btn = document.createElement('button');
         btn.className = 'choice-btn';
         btn.textContent = choice;
-        btn.onclick = () => selectChoice(index);
+        btn.onclick = () => selectChoiceAndCheck(index);
         container.appendChild(btn);
     });
 
     // リセット
     appState.selectedAnswer = null;
-    document.getElementById('check-answer-btn').disabled = true;
     document.getElementById('feedback').classList.add('hidden');
 }
 
-function selectChoice(index) {
+function selectChoiceAndCheck(index) {
     // 既に回答済みなら無視
     if (appState.selectedAnswer !== null) return;
 
     appState.selectedAnswer = index;
 
-    // UI更新
-    const choices = document.querySelectorAll('.choice-btn');
-    choices.forEach((btn, i) => {
-        btn.classList.remove('selected');
-        if (i === index) {
-            btn.classList.add('selected');
-        }
-    });
-
-    document.getElementById('check-answer-btn').disabled = false;
+    // すぐに答えをチェック
+    checkAnswer();
 }
-
-document.getElementById('check-answer-btn').addEventListener('click', checkAnswer);
 
 function checkAnswer() {
     const question = appState.currentQuiz[appState.currentQuestionIndex];
@@ -488,15 +489,28 @@ function checkAnswer() {
     // 間隔反復アルゴリズムと正解率統計の更新
     updateQuestionStats(question, isCorrect);
 
-    // ボタン非表示
-    document.getElementById('check-answer-btn').style.display = 'none';
+    // プログレスバーを更新（正解数が増えた場合）
+    const correctProgress = (appState.currentSession.correct / appState.currentQuiz.length) * 100;
+    document.getElementById('quiz-progress-correct').style.width = correctProgress + '%';
+
+    // 正解率を更新
+    const accuracy = Math.round((appState.currentSession.correct / appState.currentSession.total) * 100);
+    document.getElementById('session-accuracy').textContent = `正解率: ${accuracy}%`;
+
+    // 2秒後に自動的に次へ進む
+    setTimeout(() => {
+        nextQuestion();
+    }, 2000);
 }
 
-document.getElementById('next-question-btn').addEventListener('click', nextQuestion);
+document.getElementById('next-question-btn').addEventListener('click', () => {
+    // 手動で次へボタンを押した場合はすぐに進む
+    if (appState.selectedAnswer !== null) {
+        nextQuestion();
+    }
+});
 
 function nextQuestion() {
-    document.getElementById('check-answer-btn').style.display = 'block';
-
     if (appState.currentQuestionIndex < appState.currentQuiz.length - 1) {
         // 10秒休憩(3問ごと)
         if ((appState.currentQuestionIndex + 1) % 3 === 0) {
@@ -742,9 +756,18 @@ document.getElementById('filter-tags-input').addEventListener('keypress', (e) =>
     }
 });
 
+document.getElementById('bulk-delete-btn').addEventListener('click', () => {
+    bulkDeleteQuestions();
+});
+
+document.getElementById('delete-all-btn').addEventListener('click', () => {
+    deleteAllQuestions();
+});
+
 function showManageScreen() {
     showScreen('manage-screen');
     appState.showArchivedQuestions = false;
+    appState.selectedQuestions.clear();
     appState.filters = {
         difficulty: 'all',
         accuracy: 'all',
@@ -753,6 +776,7 @@ function showManageScreen() {
     };
     populateSourceFilter();
     renderQuestionsList();
+    updateBulkDeleteButton();
 }
 
 function toggleArchivedView() {
@@ -788,6 +812,72 @@ function removeTagFilter(tag) {
     appState.filters.tags = appState.filters.tags.filter(t => t !== tag);
     renderActiveTagsFilter();
     renderQuestionsList();
+}
+
+function toggleQuestionSelection(id, event) {
+    event.stopPropagation();
+
+    if (appState.selectedQuestions.has(id)) {
+        appState.selectedQuestions.delete(id);
+    } else {
+        appState.selectedQuestions.add(id);
+    }
+
+    updateBulkDeleteButton();
+}
+
+function updateBulkDeleteButton() {
+    const count = appState.selectedQuestions.size;
+    const selectedCountElem = document.getElementById('selected-count');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+
+    if (count > 0) {
+        selectedCountElem.textContent = ` | 選択中: ${count}問`;
+        selectedCountElem.classList.remove('hidden');
+        bulkDeleteBtn.classList.remove('hidden');
+    } else {
+        selectedCountElem.classList.add('hidden');
+        bulkDeleteBtn.classList.add('hidden');
+    }
+}
+
+function bulkDeleteQuestions() {
+    const count = appState.selectedQuestions.size;
+    if (count === 0) return;
+
+    if (!confirm(`選択した${count}問を完全に削除しますか？\n（この操作は取り消せません）`)) {
+        return;
+    }
+
+    // 選択された問題を削除
+    appState.questions = appState.questions.filter(q => !appState.selectedQuestions.has(q.id));
+    appState.selectedQuestions.clear();
+
+    saveQuestions();
+    renderQuestionsList();
+    updateBulkDeleteButton();
+}
+
+function deleteAllQuestions() {
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+    const count = activeQuestions.length;
+
+    if (count === 0) {
+        alert('削除する問題がありません。');
+        return;
+    }
+
+    if (!confirm(`全ての問題（${count}問）を完全に削除しますか？\n（アーカイブ済みの問題は削除されません）\n\nこの操作は取り消せません！`)) {
+        return;
+    }
+
+    // アーカイブされていない問題を全て削除
+    appState.questions = appState.questions.filter(q => q.archived);
+    appState.selectedQuestions.clear();
+
+    saveQuestions();
+    renderQuestionsList();
+    updateBulkDeleteButton();
 }
 
 function renderQuestionsList() {
@@ -871,9 +961,15 @@ function renderQuestionsList() {
         const source = appState.sources.find(s => s.id === q.sourceId);
         const sourceName = source ? source.name : '不明';
 
+        const isChecked = appState.selectedQuestions.has(q.id);
+
         return `
             <div class="question-item ${q.archived ? 'archived' : ''}" data-question-id="${q.id}" onclick="toggleQuestionExpand(${q.id})">
                 <div class="question-item-header">
+                    <input type="checkbox"
+                           class="question-item-checkbox"
+                           ${isChecked ? 'checked' : ''}
+                           onclick="toggleQuestionSelection(${q.id}, event)">
                     <div class="question-item-title">
                         ${q.question}
                         <span class="question-item-expand-icon">▼</span>

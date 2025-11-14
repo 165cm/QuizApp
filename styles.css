@@ -275,13 +275,28 @@ body {
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 20px;
+    position: relative;
 }
 
 .progress-fill {
     height: 100%;
+    background: #667eea;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.progress-fill-correct {
+    height: 100%;
     background: #10b981;
     border-radius: 10px;
     transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
 
 /* クイズ画面 */
@@ -296,6 +311,16 @@ body {
     color: white;
     font-size: 18px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.session-accuracy {
+    font-size: 14px;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
 }
 
 .difficulty-badge {
@@ -649,6 +674,16 @@ body {
     font-weight: 600;
 }
 
+.manage-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.selected-count {
+    color: #fbbf24;
+    font-weight: 700;
+}
+
 /* フィルターセクション */
 .filter-section {
     background: white;
@@ -797,6 +832,13 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     gap: 15px;
+}
+
+.question-item-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 
 .question-item-title {
