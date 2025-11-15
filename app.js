@@ -911,12 +911,10 @@ function checkAnswer() {
     explanation.textContent = question.explanation;
     feedbackModal.classList.remove('hidden');
 
-    // 間隔反復アルゴリズム適用
-    updateQuestionStats(question, isCorrect);
-
-    // 表示時間を初回と復習で出し分け
+    // 表示時間を初回と復習で出し分け（updateQuestionStatsの前にチェック）
+    const isFirstTime = !question.lastReviewed;
     let displayDuration;
-    if (!question.lastReviewed) {
+    if (isFirstTime) {
         // 初回学習: 解説の長さに応じて8-15秒
         const explanationLength = question.explanation.length;
         // 基本8秒 + 50文字ごとに2秒追加、最大15秒
@@ -925,6 +923,9 @@ function checkAnswer() {
         // 復習: 固定2秒
         displayDuration = 2;
     }
+
+    // 間隔反復アルゴリズム適用（lastReviewedを更新）
+    updateQuestionStats(question, isCorrect);
 
     let countdown = displayDuration;
     timer.textContent = countdown;
@@ -1640,42 +1641,53 @@ function generateShareData(materialId) {
 }
 
 /**
- * 共有用URLを生成
+ * GitHub Gistに教材データをアップロードして共有URLを生成
  */
-function generateShareURL(materialId) {
+async function generateShareURL(materialId) {
     const shareData = generateShareData(materialId);
-    const jsonStr = JSON.stringify(shareData);
-    const compressed = LZString.compressToEncodedURIComponent(jsonStr);
-    const baseURL = window.location.href.split('?')[0];
-    const shareURL = `${baseURL}?share=${compressed}`;
+    const jsonStr = JSON.stringify(shareData, null, 2);
 
-    // URLの長さチェック（ブラウザの制限は約2000文字）
-    if (shareURL.length > 2000) {
-        console.warn(`Share URL is too long: ${shareURL.length} characters`);
+    try {
+        // GitHub Gist APIで匿名Gistを作成
+        const response = await fetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+                description: `QuizMaster教材: ${shareData.material.title}`,
+                public: true,
+                files: {
+                    'quiz.json': {
+                        content: jsonStr
+                    }
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const gist = await response.json();
+        const baseURL = window.location.href.split('?')[0];
+        const shareURL = `${baseURL}?gist=${gist.id}`;
+
+        console.log('Gist created:', gist.html_url);
+        return shareURL;
+    } catch (err) {
+        console.error('Failed to create Gist:', err);
+        throw err;
     }
-
-    return shareURL;
 }
 
 /**
- * URLをクリップボードにコピー
+ * URLをクリップボードにコピー（GitHub Gist使用）
  */
 async function copyShareURL(materialId) {
     try {
-        const url = generateShareURL(materialId);
-
-        // URLの長さチェック
-        if (url.length > 2000) {
-            const proceed = confirm(
-                `共有URLが長すぎます（${url.length}文字）。\n` +
-                'ブラウザによっては正しく動作しない可能性があります。\n\n' +
-                'それでもコピーしますか？'
-            );
-            if (!proceed) {
-                return false;
-            }
-        }
-
+        const url = await generateShareURL(materialId);
         await navigator.clipboard.writeText(url);
         return true;
     } catch (err) {
@@ -1685,22 +1697,13 @@ async function copyShareURL(materialId) {
 }
 
 /**
- * QRコードを生成して表示
+ * QRコードを生成して表示（GitHub Gist使用）
  */
-function generateQRCode(materialId) {
+async function generateQRCode(materialId) {
     try {
-        const url = generateShareURL(materialId);
+        const url = await generateShareURL(materialId);
         const qrContainer = document.getElementById('qr-code');
         qrContainer.innerHTML = ''; // 既存のQRコードをクリア
-
-        // URLの長さチェック
-        if (url.length > 2000) {
-            alert(
-                `共有URLが長すぎます（${url.length}文字）。\n` +
-                'QRコードは生成できますが、一部のQRコードリーダーで読み取れない可能性があります。\n\n' +
-                '問題数の少ない教材での共有をおすすめします。'
-            );
-        }
 
         // QRCodeライブラリが読み込まれているか確認
         if (typeof QRCode === 'undefined') {
@@ -1775,39 +1778,59 @@ function importSharedMaterial(shareData) {
 /**
  * ページ読み込み時に共有URLパラメータをチェック
  */
-function checkForSharedMaterial() {
+async function checkForSharedMaterial() {
     const urlParams = new URLSearchParams(window.location.search);
-    const shareParam = urlParams.get('share');
+    const gistId = urlParams.get('gist');
+    const legacyShare = urlParams.get('share');
 
-    if (shareParam) {
-        try {
-            const decompressed = LZString.decompressFromEncodedURIComponent(shareParam);
-            const shareData = JSON.parse(decompressed);
+    try {
+        let shareData;
 
-            // バージョンチェック
-            if (shareData.version !== 1) {
-                throw new Error('サポートされていないバージョンです');
+        if (gistId) {
+            // GitHub Gistから取得
+            console.log('Loading from Gist:', gistId);
+            const response = await fetch(`https://api.github.com/gists/${gistId}`);
+
+            if (!response.ok) {
+                throw new Error(`GitHub API error: ${response.status}`);
             }
 
-            // データをインポート
-            const newMaterialId = importSharedMaterial(shareData);
-
-            // URLをクリーンアップ（ブラウザ履歴を汚さない）
-            window.history.replaceState({}, document.title, window.location.pathname);
-
-            // 教材詳細画面を表示
-            showMaterialDetail(newMaterialId);
-            showScreen('material-detail-screen');
-
-            // 成功メッセージ
-            alert(`「${shareData.material.title}」をインポートしました！\n問題数: ${shareData.questions.length}問`);
-        } catch (err) {
-            console.error('Failed to import shared material:', err);
-            alert('共有データの読み込みに失敗しました。URLが正しいか確認してください。');
-
-            // エラー時もURLをクリーンアップ
-            window.history.replaceState({}, document.title, window.location.pathname);
+            const gist = await response.json();
+            const fileContent = gist.files['quiz.json'].content;
+            shareData = JSON.parse(fileContent);
+        } else if (legacyShare) {
+            // レガシーURL形式（LZ-string圧縮）
+            console.log('Loading from legacy share URL');
+            const decompressed = LZString.decompressFromEncodedURIComponent(legacyShare);
+            shareData = JSON.parse(decompressed);
+        } else {
+            // 共有パラメータなし
+            return;
         }
+
+        // バージョンチェック
+        if (shareData.version !== 1) {
+            throw new Error('サポートされていないバージョンです');
+        }
+
+        // データをインポート
+        const newMaterialId = importSharedMaterial(shareData);
+
+        // URLをクリーンアップ（ブラウザ履歴を汚さない）
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // 教材詳細画面を表示
+        showMaterialDetail(newMaterialId);
+        showScreen('material-detail-screen');
+
+        // 成功メッセージ
+        alert(`「${shareData.material.title}」をインポートしました！\n問題数: ${shareData.questions.length}問`);
+    } catch (err) {
+        console.error('Failed to import shared material:', err);
+        alert('共有データの読み込みに失敗しました。URLが正しいか確認してください。');
+
+        // エラー時もURLをクリーンアップ
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
 }
 
@@ -1930,33 +1953,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // LZ-stringの読み込み確認
-            if (typeof LZString === 'undefined') {
-                console.error('LZString library is not loaded');
-                alert('圧縮ライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
-                return;
-            }
+            // ボタンを無効化してローディング表示
+            copyUrlBtn.disabled = true;
+            const originalText = copyUrlBtn.querySelector('.share-option-title').textContent;
+            copyUrlBtn.querySelector('.share-option-title').textContent = '生成中...';
 
-            const success = await copyShareURL(materialId);
+            try {
+                const success = await copyShareURL(materialId);
 
-            if (success) {
-                // 成功メッセージを表示
-                const resultArea = document.getElementById('share-result');
-                const successMsg = document.getElementById('share-success');
-                const qrContainer = document.getElementById('qr-code-container');
+                if (success) {
+                    // 成功メッセージを表示
+                    const resultArea = document.getElementById('share-result');
+                    const successMsg = document.getElementById('share-success');
+                    const qrContainer = document.getElementById('qr-code-container');
 
-                resultArea.classList.remove('hidden');
-                successMsg.classList.remove('hidden');
-                qrContainer.classList.add('hidden');
+                    resultArea.classList.remove('hidden');
+                    successMsg.classList.remove('hidden');
+                    qrContainer.classList.add('hidden');
 
-                console.log('URL copied successfully');
+                    console.log('URL copied successfully');
 
-                // 3秒後に成功メッセージを非表示
-                setTimeout(() => {
-                    successMsg.classList.add('hidden');
-                }, 3000);
-            } else {
-                alert('URLのコピーに失敗しました。');
+                    // 3秒後に成功メッセージを非表示
+                    setTimeout(() => {
+                        successMsg.classList.add('hidden');
+                    }, 3000);
+                } else {
+                    alert('URLのコピーに失敗しました。');
+                }
+            } finally {
+                // ボタンを元に戻す
+                copyUrlBtn.disabled = false;
+                copyUrlBtn.querySelector('.share-option-title').textContent = originalText;
             }
         });
     }
@@ -1964,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // QRコードを表示
     const showQrBtn = document.getElementById('show-qr-btn');
     if (showQrBtn) {
-        showQrBtn.addEventListener('click', () => {
+        showQrBtn.addEventListener('click', async () => {
             console.log('Show QR button clicked');
             const materialId = appState.currentMaterialId;
 
@@ -1974,16 +2001,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const resultArea = document.getElementById('share-result');
-            const successMsg = document.getElementById('share-success');
-            const qrContainer = document.getElementById('qr-code-container');
+            // ボタンを無効化してローディング表示
+            showQrBtn.disabled = true;
+            const originalText = showQrBtn.querySelector('.share-option-title').textContent;
+            showQrBtn.querySelector('.share-option-title').textContent = '生成中...';
 
-            resultArea.classList.remove('hidden');
-            successMsg.classList.add('hidden');
-            qrContainer.classList.remove('hidden');
+            try {
+                const resultArea = document.getElementById('share-result');
+                const successMsg = document.getElementById('share-success');
+                const qrContainer = document.getElementById('qr-code-container');
 
-            // QRコードを生成
-            generateQRCode(materialId);
+                resultArea.classList.remove('hidden');
+                successMsg.classList.add('hidden');
+                qrContainer.classList.remove('hidden');
+
+                // QRコードを生成
+                await generateQRCode(materialId);
+            } finally {
+                // ボタンを元に戻す
+                showQrBtn.disabled = false;
+                showQrBtn.querySelector('.share-option-title').textContent = originalText;
+            }
         });
     }
 
