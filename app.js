@@ -894,16 +894,10 @@ function checkAnswer() {
     // ボタン非表示
     document.getElementById('check-answer-btn').style.display = 'none';
 
-    // 解説の文字数に応じた自動進行時間を計算（100文字あたり3秒、最小3秒、最大15秒）
-    const explanationLength = question.explanation.length;
-    const baseTime = 3000; // 基本3秒
-    const additionalTime = Math.floor(explanationLength / 100) * 3000; // 100文字あたり3秒
-    const autoProgressDelay = Math.min(Math.max(baseTime + additionalTime, 3000), 15000);
-
-    // 自動で次へ進む
+    // 1秒で自動的に次へ進む
     autoProgressTimer = setTimeout(() => {
         nextQuestion();
-    }, autoProgressDelay);
+    }, 1000);
 }
 
 document.getElementById('next-question-btn').addEventListener('click', nextQuestion);
@@ -1128,7 +1122,6 @@ document.getElementById('back-to-library-btn')?.addEventListener('click', () => 
 // 教材ライブラリ管理
 // ========================================
 let filteredMaterials = [];
-let currentViewMode = 'list'; // デフォルトはリストビュー
 
 function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -1143,12 +1136,6 @@ function showMaterialsLibrary() {
     // フィルターとソートを適用
     filteredMaterials = applyFiltersAndSort();
 
-    // タグフィルターの選択肢を更新
-    updateTagFilter();
-
-    // ビューモードを適用
-    applyViewMode();
-
     // 教材カードを表示
     filteredMaterials.forEach(material => {
         const materialCard = createMaterialCard(material);
@@ -1158,18 +1145,11 @@ function showMaterialsLibrary() {
     showScreen('references-screen');
 }
 
-// ビューモードを適用
-function applyViewMode() {
-    const container = document.getElementById('references-list');
-    container.className = currentViewMode === 'list' ? 'materials-grid list-view' : 'materials-grid';
-}
-
 function createMaterialCard(material) {
     const card = document.createElement('div');
     card.className = 'material-card';
 
     const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP', {
-        year: 'numeric',
         month: 'short',
         day: 'numeric'
     });
@@ -1184,21 +1164,22 @@ function createMaterialCard(material) {
         ? Math.round((correctCount / answeredQuestions.length) * 100)
         : 0;
 
-    // タグHTML生成
-    const tagsHTML = material.tags.map(tag =>
+    // タグHTML生成（最大3つ）
+    const tagsHTML = material.tags.slice(0, 3).map(tag =>
         `<span class="tag">${tag}</span>`
     ).join('');
 
     card.innerHTML = `
-        <div class="material-card-header">
-            <h3 class="material-title">${material.title}</h3>
-            <div class="material-date">📅 ${dateStr}</div>
+        <div>
+            <div class="material-card-header">
+                <h3 class="material-title">${material.title}</h3>
+                <div class="material-date">${dateStr}</div>
+            </div>
+            <div class="material-tags">${tagsHTML}</div>
         </div>
-        <p class="material-summary">${material.summary}</p>
-        <div class="material-tags">${tagsHTML || '<span class="tag">未分類</span>'}</div>
         <div class="material-stats">
             <span class="stat-item">📝 ${questionCount}問</span>
-            <span class="stat-item">📊 正解率 ${accuracy}%</span>
+            <span class="stat-item">📊 ${accuracy}%</span>
         </div>
     `;
 
@@ -1222,12 +1203,6 @@ function applyFiltersAndSort() {
         );
     }
 
-    // タグフィルター
-    const tagFilter = document.getElementById('tag-filter')?.value;
-    if (tagFilter) {
-        materials = materials.filter(m => m.tags.includes(tagFilter));
-    }
-
     // ソート
     const sortFilter = document.getElementById('sort-filter')?.value || 'date-desc';
     switch (sortFilter) {
@@ -1240,62 +1215,14 @@ function applyFiltersAndSort() {
         case 'title':
             materials.sort((a, b) => a.title.localeCompare(b.title, 'ja'));
             break;
-        case 'questions':
-            materials.sort((a, b) => {
-                const aCount = appState.questions.filter(q => q.materialId === a.id).length;
-                const bCount = appState.questions.filter(q => q.materialId === b.id).length;
-                return bCount - aCount;
-            });
-            break;
     }
 
     return materials;
 }
 
-function updateTagFilter() {
-    const select = document.getElementById('tag-filter');
-    if (!select) return;
-
-    // すべてのタグを収集
-    const allTags = new Set();
-    appState.materials.forEach(m => {
-        m.tags.forEach(tag => allTags.add(tag));
-    });
-
-    // 現在の選択を保持
-    const currentValue = select.value;
-
-    // オプションを更新
-    select.innerHTML = '<option value="">すべてのタグ</option>';
-    Array.from(allTags).sort().forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = tag;
-        select.appendChild(option);
-    });
-
-    select.value = currentValue;
-}
-
 // フィルター変更時のイベントリスナー
 document.getElementById('material-search')?.addEventListener('input', showMaterialsLibrary);
-document.getElementById('tag-filter')?.addEventListener('change', showMaterialsLibrary);
 document.getElementById('sort-filter')?.addEventListener('change', showMaterialsLibrary);
-
-// ビュー切り替えのイベントリスナー
-document.getElementById('list-view-btn')?.addEventListener('click', () => {
-    currentViewMode = 'list';
-    document.getElementById('list-view-btn').classList.add('active');
-    document.getElementById('card-view-btn').classList.remove('active');
-    showMaterialsLibrary();
-});
-
-document.getElementById('card-view-btn')?.addEventListener('click', () => {
-    currentViewMode = 'card';
-    document.getElementById('card-view-btn').classList.add('active');
-    document.getElementById('list-view-btn').classList.remove('active');
-    showMaterialsLibrary();
-});
 
 function deleteMaterial(materialId) {
     const material = appState.materials.find(m => m.id === materialId);
@@ -1407,7 +1334,7 @@ function updateQuestionsTab(material, questions) {
 
         // 参照元セクションのアンカーリンクを生成
         const anchorId = 'heading-' + encodeURIComponent(sectionTag.replace(/\s+/g, '-'));
-        const sectionLink = `<a href="#${anchorId}" class="section-link" onclick="document.querySelector('.tab-btn[data-tab=\\'content\\']').click(); setTimeout(() => document.getElementById('${anchorId}')?.scrollIntoView({behavior: 'smooth', block: 'start'}), 100); return false;">🏷️ ${sectionTag}</a>`;
+        const sectionLink = `<a href="#${anchorId}" class="section-link" onclick="highlightHeading('${anchorId}'); return false;">🏷️ ${sectionTag}</a>`;
 
         questionCard.innerHTML = `
             <div class="question-item-header">
@@ -1429,26 +1356,43 @@ function updateContentTab(material) {
     const container = document.getElementById('material-content');
 
     // マークダウン形式の本文を表示（シンプルな表示）
-    const content = material.content || 'この教材には本文が保存されていません。';
+    let content = material.content || 'この教材には本文が保存されていません。';
+
+    // 画像URLなどの不要な文字列を削除
+    content = content.replace(/!\[.*?\]\(https?:\/\/.*?\)/g, ''); // マークダウン形式の画像
+    content = content.replace(/https?:\/\/\S+\.(png|jpg|jpeg|gif|svg)/gi, ''); // 画像URL
 
     // 改行を<br>に変換し、見出しを強調、見出しにアンカーIDを付ける
+    // Callout風の装飾を追加
     const formattedContent = content
         .split('\n')
         .map(line => {
             if (line.startsWith('# ')) {
                 const heading = line.substring(2);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
-                return `<h1 id="${anchorId}">${heading}</h1>`;
+                return `<h1 id="${anchorId}" class="content-heading-h1">${heading}</h1>`;
             } else if (line.startsWith('## ')) {
                 const heading = line.substring(3);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
-                return `<h2 id="${anchorId}">${heading}</h2>`;
+                return `<h2 id="${anchorId}" class="content-heading-h2">${heading}</h2>`;
             } else if (line.startsWith('### ')) {
                 const heading = line.substring(4);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
-                return `<h3 id="${anchorId}">${heading}</h3>`;
+                return `<h3 id="${anchorId}" class="content-heading-h3">${heading}</h3>`;
+            } else if (line.startsWith('> ')) {
+                // Callout風のブロック引用
+                const text = line.substring(2);
+                return `<div class="content-callout">${text}</div>`;
+            } else if (line.startsWith('- ') || line.startsWith('* ')) {
+                // リスト項目
+                const text = line.substring(2);
+                return `<div class="content-list-item">• ${text}</div>`;
             } else if (line.trim() === '') {
                 return '<br>';
+            } else if (line.includes('**') && line.match(/\*\*(.*?)\*\*/)) {
+                // 太字をハイライト
+                const highlighted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="content-highlight">$1</strong>');
+                return `<p>${highlighted}</p>`;
             } else {
                 return `<p>${line}</p>`;
             }
@@ -1582,8 +1526,82 @@ document.getElementById('generate-from-text-btn')?.addEventListener('click', asy
 });
 
 // ========================================
+// ホーム画面タブ切り替え
+// ========================================
+document.querySelectorAll('.home-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+
+        // すべてのタブボタンとコンテンツから active を削除
+        document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
+
+        // クリックされたタブをアクティブに
+        btn.classList.add('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+    });
+});
+
+// 教材生成タブのPDF/テキスト切り替え
+document.querySelectorAll('.mode-tab-compact').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const mode = tab.getAttribute('data-mode');
+
+        // タブの切り替え
+        document.querySelectorAll('.mode-tab-compact').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // コンテンツの切り替え
+        document.querySelectorAll('.input-mode').forEach(m => m.classList.remove('active'));
+        document.getElementById(`${mode}-mode`).classList.add('active');
+    });
+});
+
+// 出題数ボタン（コンパクト版）
+document.querySelectorAll('.count-btn-compact').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const count = parseInt(btn.getAttribute('data-count'));
+        appState.questionCount = count;
+
+        // ボタンの選択状態を更新
+        document.querySelectorAll('.count-btn-compact').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+
+// レポートタブの統計を更新する関数
+function updateReportTab() {
+    document.getElementById('total-answered').textContent = appState.userStats.totalAnswered;
+    document.getElementById('total-correct').textContent = appState.userStats.correctAnswers;
+}
+
+// 見出しをハイライトする関数
+function highlightHeading(anchorId) {
+    // 本文タブに切り替え
+    document.querySelector('.tab-btn[data-tab="content"]').click();
+
+    // 少し待ってからスクロールとハイライト
+    setTimeout(() => {
+        const heading = document.getElementById(anchorId);
+        if (heading) {
+            // スムーズにスクロール
+            heading.scrollIntoView({behavior: 'smooth', block: 'center'});
+
+            // ハイライトクラスを追加
+            heading.classList.add('highlight');
+
+            // 3秒後にハイライトを削除
+            setTimeout(() => {
+                heading.classList.remove('highlight');
+            }, 3000);
+        }
+    }, 100);
+}
+
+// ========================================
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     initHomeScreen();
+    updateReportTab();
 });

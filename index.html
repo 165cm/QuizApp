@@ -12,105 +12,121 @@
         <!-- ホーム画面 -->
         <div id="home-screen" class="screen active">
             <div class="container">
-                <div class="header">
-                    <h1 class="logo">📚 QuizMaster</h1>
-                    <div class="streak-badge">
+                <div class="header-compact">
+                    <h1 class="logo-compact">📚 QuizMaster</h1>
+                    <div class="streak-badge-compact">
                         <span class="fire-icon">🔥</span>
                         <span id="streak-count">0</span>
-                        <span class="streak-label">日連続</span>
                     </div>
                 </div>
 
-                <!-- 学習開始セクション（最優先） -->
-                <div class="quick-start-section">
-                    <h2>🚀 学習を始める</h2>
-                    <div class="study-config">
-                        <div class="config-row">
-                            <label class="config-label">出題範囲</label>
-                            <select id="material-select" class="config-select">
-                                <option value="all">全ての問題からランダム</option>
-                            </select>
-                        </div>
-                        <div class="config-row">
-                            <label class="config-label">出題数</label>
-                            <div class="question-count-selector">
-                                <button class="count-btn" data-count="5">5問</button>
-                                <button class="count-btn active" data-count="10">10問</button>
-                                <button class="count-btn" data-count="15">15問</button>
-                                <button class="count-btn" data-count="20">20問</button>
-                                <button class="count-btn" data-count="25">25問</button>
-                                <button class="count-btn" data-count="30">30問</button>
+                <!-- タブナビゲーション -->
+                <div class="home-tab-navigation">
+                    <button class="home-tab-btn active" data-tab="start">学習開始</button>
+                    <button class="home-tab-btn" data-tab="generate">教材生成</button>
+                    <button class="home-tab-btn" data-tab="report">レポート</button>
+                </div>
+
+                <!-- タブコンテンツ -->
+                <div class="home-tab-content active" id="tab-start">
+                    <!-- 学習開始セクション -->
+                    <div class="quick-start-section-compact">
+                        <div class="study-config-compact">
+                            <div class="config-row-compact">
+                                <label class="config-label-compact">出題範囲</label>
+                                <select id="material-select" class="config-select-compact">
+                                    <option value="all">全ての問題からランダム</option>
+                                </select>
+                            </div>
+                            <div class="config-row-compact">
+                                <label class="config-label-compact">出題数</label>
+                                <div class="question-count-selector-compact">
+                                    <button class="count-btn-compact" data-count="5">5</button>
+                                    <button class="count-btn-compact active" data-count="10">10</button>
+                                    <button class="count-btn-compact" data-count="15">15</button>
+                                    <button class="count-btn-compact" data-count="20">20</button>
+                                    <button class="count-btn-compact" data-count="25">25</button>
+                                    <button class="count-btn-compact" data-count="30">30</button>
+                                </div>
                             </div>
                         </div>
+                        <button id="start-quiz-btn" class="btn btn-success btn-large-compact">
+                            学習を開始する
+                        </button>
                     </div>
-                    <button id="start-quiz-btn" class="btn btn-success btn-large">
-                        学習を開始する
+
+                    <!-- 統計（コンパクト） -->
+                    <div class="stats-grid-compact">
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">総問題数</div>
+                            <div class="stat-value-compact" id="total-questions">0</div>
+                        </div>
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">正解率</div>
+                            <div class="stat-value-compact" id="accuracy-rate">0%</div>
+                        </div>
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">復習待ち</div>
+                            <div class="stat-value-compact" id="review-count">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="home-tab-content" id="tab-generate">
+                    <!-- 教材追加セクション -->
+                    <div class="upload-section-compact">
+                        <!-- PDF/テキスト切り替えタブ -->
+                        <div class="input-mode-tabs-compact">
+                            <button class="mode-tab-compact active" data-mode="pdf">📄 PDF</button>
+                            <button class="mode-tab-compact" data-mode="text">📝 テキスト</button>
+                        </div>
+
+                        <!-- PDFモード -->
+                        <div id="pdf-mode" class="input-mode active">
+                            <div class="upload-box-compact">
+                                <input type="file" id="pdf-input" accept=".pdf" hidden>
+                                <label for="pdf-input" class="upload-label-compact">
+                                    <div class="upload-icon-compact">📄</div>
+                                    <div class="upload-text-compact">PDFファイルを選択</div>
+                                </label>
+                                <div id="file-name" class="file-name-compact"></div>
+                            </div>
+                            <button id="generate-btn" class="btn btn-primary btn-large-compact" disabled>クイズを生成</button>
+                        </div>
+
+                        <!-- テキストモード -->
+                        <div id="text-mode" class="input-mode">
+                            <textarea id="text-input" class="text-input-area-compact" placeholder="学習したいテキストを貼り付け..."></textarea>
+                            <button id="generate-from-text-btn" class="btn btn-primary btn-large-compact">テキストからクイズを生成</button>
+                        </div>
+                    </div>
+
+                    <button id="manage-references-btn" class="btn btn-secondary btn-large-compact">
+                        📚 教材ライブラリ
                     </button>
                 </div>
 
-                <!-- 統計 -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">総問題数</div>
-                        <div class="stat-value" id="total-questions">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">正解率</div>
-                        <div class="stat-value" id="accuracy-rate">0%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">復習待ち</div>
-                        <div class="stat-value" id="review-count">0</div>
-                    </div>
-                </div>
-
-                <!-- タグ統計 -->
-                <div class="tag-stats-section">
-                    <h2>📊 学習ジャンル</h2>
-                    <div id="tag-cloud" class="tag-cloud">
-                        <!-- タグクラウドがここに表示されます -->
-                    </div>
-                </div>
-
-                <!-- 教材追加セクション -->
-                <div class="upload-section">
-                    <h2>新しい教材を追加</h2>
-
-                    <!-- PDF/テキスト切り替えタブ -->
-                    <div class="input-mode-tabs">
-                        <button class="mode-tab active" data-mode="pdf">📄 PDF</button>
-                        <button class="mode-tab" data-mode="text">📝 テキスト</button>
-                    </div>
-
-                    <!-- PDFモード -->
-                    <div id="pdf-mode" class="input-mode active">
-                        <div class="upload-box">
-                            <input type="file" id="pdf-input" accept=".pdf" hidden>
-                            <label for="pdf-input" class="upload-label">
-                                <div class="upload-icon">📄</div>
-                                <div class="upload-text">PDFファイルを選択</div>
-                                <div class="upload-subtext">クリックしてファイルを選択</div>
-                            </label>
-                            <div id="file-name" class="file-name"></div>
+                <div class="home-tab-content" id="tab-report">
+                    <!-- タグ統計 -->
+                    <div class="tag-stats-section-compact">
+                        <h3 class="section-title-compact">学習ジャンル</h3>
+                        <div id="tag-cloud" class="tag-cloud-compact">
+                            <!-- タグクラウドがここに表示されます -->
                         </div>
-                        <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
                     </div>
 
-                    <!-- テキストモード -->
-                    <div id="text-mode" class="input-mode">
-                        <textarea id="text-input" class="text-input-area" placeholder="学習したいテキストをここに貼り付けてください...
-
-例：
-歴史の教科書の一部、プログラミングのドキュメント、論文の要約など
-
-※ テキストはGPTにより自動的に見出し付きのマークダウン形式に整形されます"></textarea>
-                        <button id="generate-from-text-btn" class="btn btn-primary">テキストからクイズを生成</button>
+                    <!-- 統計詳細 -->
+                    <div class="stats-detail-compact">
+                        <div class="stat-detail-card">
+                            <div class="stat-detail-label">累計解答数</div>
+                            <div class="stat-detail-value" id="total-answered">0</div>
+                        </div>
+                        <div class="stat-detail-card">
+                            <div class="stat-detail-label">累計正解数</div>
+                            <div class="stat-detail-value" id="total-correct">0</div>
+                        </div>
                     </div>
                 </div>
-
-                <button id="manage-references-btn" class="btn btn-secondary btn-large">
-                    📚 教材ライブラリ
-                </button>
             </div>
         </div>
 
@@ -122,22 +138,14 @@
                     <h1 class="logo">📚 教材ライブラリ</h1>
                 </div>
 
-                <!-- フィルター・検索バー -->
-                <div class="filter-bar">
-                    <input type="text" id="material-search" class="search-input" placeholder="🔍 教材を検索...">
-                    <select id="tag-filter" class="filter-select">
-                        <option value="">すべてのタグ</option>
-                    </select>
-                    <select id="sort-filter" class="filter-select">
+                <!-- フィルター・検索バー（コンパクト） -->
+                <div class="filter-bar-compact">
+                    <input type="text" id="material-search" class="search-input-compact" placeholder="🔍 検索...">
+                    <select id="sort-filter" class="filter-select-compact">
                         <option value="date-desc">新しい順</option>
                         <option value="date-asc">古い順</option>
                         <option value="title">タイトル順</option>
-                        <option value="questions">問題数順</option>
                     </select>
-                    <div class="view-toggle">
-                        <button id="list-view-btn" class="view-btn active" title="リスト表示">☰</button>
-                        <button id="card-view-btn" class="view-btn" title="カード表示">▦</button>
-                    </div>
                 </div>
 
                 <div id="references-list" class="materials-grid">
@@ -241,15 +249,15 @@
 
                 <div class="difficulty-badge" id="difficulty-badge">基礎</div>
 
-                <div class="question-card">
-                    <h2 id="question-text" class="question-text"></h2>
-                    <div id="question-tags" class="question-tags">
-                        <!-- 問題のタグがここに表示されます -->
-                    </div>
-                    <div id="choices-container" class="choices-container"></div>
+                <!-- タグを問題枠の外に配置 -->
+                <div id="question-tags" class="question-tags-outside">
+                    <!-- 問題のタグがここに表示されます -->
                 </div>
 
-                <button id="check-answer-btn" class="btn btn-primary btn-large" disabled>答えを確認</button>
+                <div class="question-card">
+                    <h2 id="question-text" class="question-text"></h2>
+                    <div id="choices-container" class="choices-container"></div>
+                </div>
 
                 <!-- フィードバック -->
                 <div id="feedback" class="feedback hidden">
@@ -258,7 +266,8 @@
                         <span id="feedback-title"></span>
                     </div>
                     <div id="feedback-explanation" class="feedback-explanation"></div>
-                    <button id="next-question-btn" class="btn btn-primary btn-large">次へ</button>
+                    <button id="next-question-btn" class="btn-compact">次へ →</button>
+                    <button id="back-to-explanation-btn" class="btn-text-small">← 戻る</button>
                 </div>
 
                 <!-- 10秒休憩 -->
