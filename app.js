@@ -1565,9 +1565,180 @@ function highlightHeading(anchorId) {
 }
 
 // ========================================
+// 教材共有機能
+// ========================================
+
+/**
+ * 共有用のデータを生成（APIキーや個人情報を除外）
+ */
+function generateShareData(materialId) {
+    const material = appState.materials.find(m => m.id === materialId);
+    if (!material) {
+        throw new Error('教材が見つかりません');
+    }
+
+    const questions = appState.questions.filter(q => q.materialId === materialId);
+
+    // 共有用データ（個人情報を含まない）
+    const shareData = {
+        version: 1,
+        material: {
+            title: material.title,
+            summary: material.summary,
+            content: material.content,
+            tags: material.tags,
+            fileName: material.fileName
+        },
+        questions: questions.map(q => ({
+            question: q.question,
+            choices: q.choices,
+            correctIndex: q.correctIndex,
+            explanation: q.explanation,
+            difficulty: q.difficulty,
+            sourceSection: q.sourceSection,
+            tags: q.tags
+        }))
+    };
+
+    return shareData;
+}
+
+/**
+ * 共有用URLを生成
+ */
+function generateShareURL(materialId) {
+    const shareData = generateShareData(materialId);
+    const jsonStr = JSON.stringify(shareData);
+    const compressed = LZString.compressToEncodedURIComponent(jsonStr);
+    const baseURL = window.location.href.split('?')[0];
+    return `${baseURL}?share=${compressed}`;
+}
+
+/**
+ * URLをクリップボードにコピー
+ */
+async function copyShareURL(materialId) {
+    try {
+        const url = generateShareURL(materialId);
+        await navigator.clipboard.writeText(url);
+        return true;
+    } catch (err) {
+        console.error('Failed to copy URL:', err);
+        return false;
+    }
+}
+
+/**
+ * QRコードを生成して表示
+ */
+function generateQRCode(materialId) {
+    const url = generateShareURL(materialId);
+    const qrContainer = document.getElementById('qr-code');
+    qrContainer.innerHTML = ''; // 既存のQRコードをクリア
+
+    new QRCode(qrContainer, {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+    });
+}
+
+/**
+ * 共有データをインポートして教材を追加
+ */
+function importSharedMaterial(shareData) {
+    const newMaterialId = 'mat_' + Date.now();
+    const newReferenceId = 'ref_' + Date.now();
+
+    // 教材を追加（タイトルに「(共有)」を付加）
+    const newMaterial = {
+        id: newMaterialId,
+        title: shareData.material.title + ' (共有)',
+        summary: shareData.material.summary,
+        content: shareData.material.content,
+        tags: shareData.material.tags,
+        fileName: shareData.material.fileName,
+        uploadDate: new Date().toISOString(),
+        questionIds: []
+    };
+
+    // 問題を追加（学習データをリセット）
+    const newQuestions = shareData.questions.map((q, index) => ({
+        id: Date.now() + index + Math.random(),
+        ...q,
+        materialId: newMaterialId,
+        lastReviewed: null,
+        reviewCount: 0,
+        easeFactor: 2.5,
+        interval: 0,
+        nextReview: null,
+        reference: {
+            id: newReferenceId,
+            fileName: shareData.material.fileName,
+            uploadDate: new Date().toISOString(),
+            section: q.sourceSection || ''
+        }
+    }));
+
+    newMaterial.questionIds = newQuestions.map(q => q.id);
+
+    // LocalStorageに保存
+    appState.materials.push(newMaterial);
+    appState.questions.push(...newQuestions);
+    localStorage.setItem('materials', JSON.stringify(appState.materials));
+    localStorage.setItem('questions', JSON.stringify(appState.questions));
+
+    return newMaterialId;
+}
+
+/**
+ * ページ読み込み時に共有URLパラメータをチェック
+ */
+function checkForSharedMaterial() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareParam = urlParams.get('share');
+
+    if (shareParam) {
+        try {
+            const decompressed = LZString.decompressFromEncodedURIComponent(shareParam);
+            const shareData = JSON.parse(decompressed);
+
+            // バージョンチェック
+            if (shareData.version !== 1) {
+                throw new Error('サポートされていないバージョンです');
+            }
+
+            // データをインポート
+            const newMaterialId = importSharedMaterial(shareData);
+
+            // URLをクリーンアップ（ブラウザ履歴を汚さない）
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            // 教材詳細画面を表示
+            showMaterialDetail(newMaterialId);
+            showScreen('material-detail-screen');
+
+            // 成功メッセージ
+            alert(`「${shareData.material.title}」をインポートしました！\n問題数: ${shareData.questions.length}問`);
+        } catch (err) {
+            console.error('Failed to import shared material:', err);
+            alert('共有データの読み込みに失敗しました。URLが正しいか確認してください。');
+
+            // エラー時もURLをクリーンアップ
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+}
+
+// ========================================
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // 共有URLのチェック（最初に実行）
+    checkForSharedMaterial();
     // ========================================
     // ホーム画面タブ切り替え
     // ========================================
@@ -1616,6 +1787,91 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('next-question-btn');
     if (nextBtn) {
         nextBtn.addEventListener('click', nextQuestion);
+    }
+
+    // ========================================
+    // 共有機能のイベントリスナー
+    // ========================================
+
+    // シェアボタン
+    const shareBtn = document.getElementById('share-material-btn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+            const modal = document.getElementById('share-modal');
+            modal.classList.remove('hidden');
+
+            // 結果エリアを非表示にリセット
+            document.getElementById('share-result').classList.add('hidden');
+            document.getElementById('share-success').classList.add('hidden');
+            document.getElementById('qr-code-container').classList.add('hidden');
+        });
+    }
+
+    // モーダルを閉じる
+    const closeShareModal = document.getElementById('close-share-modal');
+    if (closeShareModal) {
+        closeShareModal.addEventListener('click', () => {
+            document.getElementById('share-modal').classList.add('hidden');
+        });
+    }
+
+    // モーダル外クリックで閉じる
+    const shareModal = document.getElementById('share-modal');
+    if (shareModal) {
+        shareModal.addEventListener('click', (e) => {
+            if (e.target === shareModal) {
+                shareModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // URLをコピー
+    const copyUrlBtn = document.getElementById('copy-url-btn');
+    if (copyUrlBtn) {
+        copyUrlBtn.addEventListener('click', async () => {
+            const materialId = appState.currentMaterialId;
+            if (!materialId) return;
+
+            const success = await copyShareURL(materialId);
+
+            if (success) {
+                // 成功メッセージを表示
+                const resultArea = document.getElementById('share-result');
+                const successMsg = document.getElementById('share-success');
+                const qrContainer = document.getElementById('qr-code-container');
+
+                resultArea.classList.remove('hidden');
+                successMsg.classList.remove('hidden');
+                qrContainer.classList.add('hidden');
+
+                // 3秒後に成功メッセージを非表示
+                setTimeout(() => {
+                    successMsg.classList.add('hidden');
+                }, 3000);
+            } else {
+                alert('URLのコピーに失敗しました。');
+            }
+        });
+    }
+
+    // QRコードを表示
+    const showQrBtn = document.getElementById('show-qr-btn');
+    if (showQrBtn) {
+        showQrBtn.addEventListener('click', () => {
+            const materialId = appState.currentMaterialId;
+            if (!materialId) return;
+
+            const resultArea = document.getElementById('share-result');
+            const successMsg = document.getElementById('share-success');
+            const qrContainer = document.getElementById('qr-code-container');
+
+            resultArea.classList.remove('hidden');
+            successMsg.classList.add('hidden');
+            qrContainer.classList.remove('hidden');
+
+            // QRコードを生成
+            generateQRCode(materialId);
+        });
     }
 
     initHomeScreen();

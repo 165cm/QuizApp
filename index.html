@@ -6,6 +6,8 @@
     <title>科学的勉強法クイズアプリ</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -196,9 +198,14 @@
                             <div class="stat-box-value" id="overview-progress"></div>
                         </div>
                     </div>
-                    <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
-                        この教材から学習する
-                    </button>
+                    <div class="material-action-buttons">
+                        <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
+                            学習する
+                        </button>
+                        <button id="share-material-btn" class="btn btn-secondary btn-large">
+                            📤 シェア
+                        </button>
+                    </div>
                 </div>
 
                 <div class="tab-content" id="tab-questions">
@@ -320,6 +327,42 @@
                 <div class="modal-actions">
                     <button id="cancel-api-key" class="btn btn-secondary">キャンセル</button>
                     <button id="save-api-key" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 共有モーダル -->
+        <div id="share-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>この教材をシェア</h2>
+                    <button id="close-share-modal" class="btn-close">✕</button>
+                </div>
+                <div class="share-options">
+                    <button id="copy-url-btn" class="share-option-btn">
+                        <span class="share-icon">🔗</span>
+                        <div class="share-option-text">
+                            <div class="share-option-title">URLをコピー</div>
+                            <div class="share-option-desc">クリップボードにコピーして共有</div>
+                        </div>
+                    </button>
+                    <button id="show-qr-btn" class="share-option-btn">
+                        <span class="share-icon">📱</span>
+                        <div class="share-option-text">
+                            <div class="share-option-title">QRコードを表示</div>
+                            <div class="share-option-desc">スマホでスキャンして共有</div>
+                        </div>
+                    </button>
+                </div>
+                <div id="share-result" class="share-result hidden">
+                    <div id="share-success" class="share-message hidden">
+                        <span class="success-icon">✓</span>
+                        <span>URLをコピーしました！</span>
+                    </div>
+                    <div id="qr-code-container" class="qr-container hidden">
+                        <div id="qr-code"></div>
+                        <p class="qr-hint">QRコードをスキャンしてください</p>
+                    </div>
                 </div>
             </div>
         </div>

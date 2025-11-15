@@ -2283,3 +2283,179 @@ body {
     border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
+
+/* === 教材共有機能のスタイル === */
+
+/* 並列アクションボタン */
+.material-action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.material-action-buttons .btn {
+    flex: 1;
+}
+
+/* 共有モーダルのヘッダー */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #111827;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+/* 共有オプション */
+.share-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.share-option-btn {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.share-option-btn:hover {
+    background: #f3f4f6;
+    border-color: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+}
+
+.share-option-btn:active {
+    transform: translateY(0);
+}
+
+.share-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.share-option-text {
+    flex: 1;
+}
+
+.share-option-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.share-option-desc {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* 共有結果エリア */
+.share-result {
+    margin-top: 20px;
+}
+
+.share-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #d1fae5;
+    border: 1px solid #6ee7b7;
+    border-radius: 8px;
+    color: #065f46;
+    font-weight: 500;
+    animation: slideDown 0.3s ease-out;
+}
+
+.success-icon {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* QRコード表示 */
+.qr-container {
+    text-align: center;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 2px solid #e5e7eb;
+}
+
+#qr-code {
+    display: inline-block;
+    padding: 16px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+#qr-code canvas {
+    display: block;
+}
+
+.qr-hint {
+    color: #6b7280;
+    font-size: 14px;
+    margin: 0;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 480px) {
+    .material-action-buttons {
+        flex-direction: column;
+    }
+
+    .share-option-btn {
+        padding: 14px;
+    }
+
+    .share-icon {
+        font-size: 28px;
+    }
+}
