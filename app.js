@@ -914,8 +914,19 @@ function checkAnswer() {
     // 間隔反復アルゴリズム適用
     updateQuestionStats(question, isCorrect);
 
-    // 2秒カウントダウンタイマー
-    let countdown = 2;
+    // 表示時間を初回と復習で出し分け
+    let displayDuration;
+    if (!question.lastReviewed) {
+        // 初回学習: 解説の長さに応じて8-15秒
+        const explanationLength = question.explanation.length;
+        // 基本8秒 + 50文字ごとに2秒追加、最大15秒
+        displayDuration = Math.min(15, 8 + Math.floor(explanationLength / 50) * 2);
+    } else {
+        // 復習: 固定2秒
+        displayDuration = 2;
+    }
+
+    let countdown = displayDuration;
     timer.textContent = countdown;
 
     const countdownInterval = setInterval(() => {
@@ -927,11 +938,11 @@ function checkAnswer() {
         }
     }, 1000);
 
-    // 2秒で自動的に次へ進む
+    // 指定時間で自動的に次へ進む
     autoProgressTimer = setTimeout(() => {
         clearInterval(countdownInterval);
         nextQuestion();
-    }, 2000);
+    }, displayDuration * 1000);
 }
 
 function nextQuestion() {
