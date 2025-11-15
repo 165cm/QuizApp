@@ -141,7 +141,7 @@ async function generateQuiz(file) {
 
         // クイズ生成
         updateGeneratingStatus('AIがクイズを生成中...', 50);
-        const questions = await generateQuestionsWithAI(text);
+        const questions = await generateQuestionsWithAI(text, file.name);
 
         // 保存
         updateGeneratingStatus('保存しています...', 90);
@@ -184,28 +184,48 @@ async function extractTextFromPDF(file) {
     return fullText;
 }
 
-async function generateQuestionsWithAI(text) {
+async function generateQuestionsWithAI(text, fileName) {
     const maxChars = 12000; // GPT-4o-miniのトークン制限を考慮
     const truncatedText = text.slice(0, maxChars);
 
     const prompt = `以下のテキストから30問の4択クイズを生成してください。
 
 要件:
-1. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
-2. 選択肢には「よくある誤解」を含める(実は間違えた効果)
-3. JSON形式で出力
-4. 日本語で出力
+1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出してください
+2. 各見出しセクションから問題を生成し、各問題に対応する見出しを記録してください
+3. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
+4. 選択肢には「よくある誤解」を含める(実は間違えた効果)
+5. JSON形式で出力
+6. 日本語で出力
 
 出力形式:
-[
-  {
-    "question": "問題文",
-    "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
-    "correctIndex": 0,
-    "explanation": "解説文",
-    "difficulty": "basic"
-  }
-]
+{
+  "sections": [
+    {
+      "heading": "見出し1",
+      "level": 1
+    },
+    {
+      "heading": "見出し2",
+      "level": 1
+    }
+  ],
+  "questions": [
+    {
+      "question": "問題文",
+      "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
+      "correctIndex": 0,
+      "explanation": "解説文",
+      "difficulty": "basic",
+      "sourceSection": "見出し1"
+    }
+  ]
+}
+
+注意:
+- sourceSectionは必ず上記sectionsの中のheadingのいずれかと一致すること
+- 見出しが明確でない場合は、テキストの内容から適切なトピック名を作成してください
+- すべての問題に必ずsourceSectionを含めてください
 
 テキスト:
 ${truncatedText}`;
@@ -221,7 +241,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成します。'
+                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成し、各問題の参照元セクションを明確に記録します。'
                 },
                 {
                     role: 'user',
@@ -242,17 +262,31 @@ ${truncatedText}`;
     const content = data.choices[0].message.content;
 
     // JSONパース
-    let questions;
+    let parsed;
     try {
-        const parsed = JSON.parse(content);
-        // レスポンスが配列またはオブジェクトの場合を処理
-        questions = Array.isArray(parsed) ? parsed : (parsed.questions || Object.values(parsed)[0]);
+        parsed = JSON.parse(content);
     } catch (e) {
         console.error('JSON parse error:', e);
         throw new Error('生成されたクイズの形式が不正です');
     }
 
-    // 間隔反復用のデータを追加
+    // sectionsとquestionsを取得
+    const sections = parsed.sections || [];
+    const questions = parsed.questions || [];
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+        throw new Error('クイズが生成されませんでした');
+    }
+
+    // 参照元情報を作成
+    const referenceId = 'ref_' + Date.now();
+    const uploadDate = new Date().toISOString();
+
+    // 見出し情報をlocalStorageに保存（参照元IDをキーとして）
+    const sectionsKey = `sections_${referenceId}`;
+    localStorage.setItem(sectionsKey, JSON.stringify(sections));
+
+    // 間隔反復用のデータと参照元情報を追加
     return questions.map(q => ({
         ...q,
         id: Date.now() + Math.random(),
@@ -260,7 +294,13 @@ ${truncatedText}`;
         reviewCount: 0,
         easeFactor: 2.5,
         interval: 0,
-        nextReview: null
+        nextReview: null,
+        reference: {
+            id: referenceId,
+            fileName: fileName,
+            uploadDate: uploadDate,
+            section: q.sourceSection || '不明'
+        }
     }));
 }
 
@@ -652,6 +692,158 @@ document.getElementById('home-btn').addEventListener('click', () => {
     showScreen('home-screen');
     initHomeScreen();
 });
+
+document.getElementById('manage-references-btn').addEventListener('click', () => {
+    showReferencesScreen();
+});
+
+document.getElementById('back-to-home-btn').addEventListener('click', () => {
+    showScreen('home-screen');
+    initHomeScreen();
+});
+
+// ========================================
+// 参照元管理
+// ========================================
+function getReferencesGrouped() {
+    const referencesMap = new Map();
+
+    appState.questions.forEach(q => {
+        // 古い問題（参照元情報がない場合）は「未分類」として扱う
+        if (!q.reference) {
+            if (!referencesMap.has('uncategorized')) {
+                referencesMap.set('uncategorized', {
+                    id: 'uncategorized',
+                    fileName: '未分類',
+                    uploadDate: null,
+                    questions: []
+                });
+            }
+            referencesMap.get('uncategorized').questions.push(q);
+        } else {
+            const refId = q.reference.id;
+            if (!referencesMap.has(refId)) {
+                referencesMap.set(refId, {
+                    id: refId,
+                    fileName: q.reference.fileName,
+                    uploadDate: q.reference.uploadDate,
+                    questions: []
+                });
+            }
+            referencesMap.get(refId).questions.push(q);
+        }
+    });
+
+    // 配列に変換してアップロード日時で降順ソート
+    return Array.from(referencesMap.values()).sort((a, b) => {
+        if (!a.uploadDate) return 1;
+        if (!b.uploadDate) return -1;
+        return new Date(b.uploadDate) - new Date(a.uploadDate);
+    });
+}
+
+function showReferencesScreen() {
+    const references = getReferencesGrouped();
+    const container = document.getElementById('references-list');
+    container.innerHTML = '';
+
+    if (references.length === 0) {
+        container.innerHTML = '<div class="empty-message">まだ問題が登録されていません</div>';
+        showScreen('references-screen');
+        return;
+    }
+
+    references.forEach(ref => {
+        const refCard = document.createElement('div');
+        refCard.className = 'reference-card';
+
+        const dateStr = ref.uploadDate
+            ? new Date(ref.uploadDate).toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '不明';
+
+        // 見出し別にグループ化
+        const sectionGroups = new Map();
+        ref.questions.forEach(q => {
+            const section = q.reference?.section || '不明';
+            if (!sectionGroups.has(section)) {
+                sectionGroups.set(section, []);
+            }
+            sectionGroups.get(section).push(q);
+        });
+
+        // 見出し情報のHTML生成
+        let sectionsHTML = '';
+        if (sectionGroups.size > 0) {
+            sectionsHTML = '<div class="sections-list">';
+            sectionGroups.forEach((questions, section) => {
+                sectionsHTML += `
+                    <div class="section-item">
+                        <span class="section-name">${section}</span>
+                        <span class="section-count">${questions.length}問</span>
+                    </div>
+                `;
+            });
+            sectionsHTML += '</div>';
+        }
+
+        refCard.innerHTML = `
+            <div class="reference-header">
+                <div class="reference-info">
+                    <h3 class="reference-filename">📄 ${ref.fileName}</h3>
+                    <p class="reference-date">アップロード日時: ${dateStr}</p>
+                </div>
+                <div class="reference-stats">
+                    <div class="reference-count">${ref.questions.length}問</div>
+                </div>
+            </div>
+            ${sectionsHTML}
+            <div class="reference-actions">
+                <button class="btn btn-danger btn-sm" onclick="deleteReference('${ref.id}')">
+                    🗑️ 削除
+                </button>
+            </div>
+        `;
+
+        container.appendChild(refCard);
+    });
+
+    showScreen('references-screen');
+}
+
+function deleteReference(referenceId) {
+    const references = getReferencesGrouped();
+    const reference = references.find(ref => ref.id === referenceId);
+
+    if (!reference) return;
+
+    const confirmMessage = `「${reference.fileName}」の問題${reference.questions.length}問を削除しますか？\n\nこの操作は取り消せません。`;
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // 該当する参照元の問題を削除
+    if (referenceId === 'uncategorized') {
+        appState.questions = appState.questions.filter(q => q.reference);
+    } else {
+        appState.questions = appState.questions.filter(q =>
+            !q.reference || q.reference.id !== referenceId
+        );
+    }
+
+    saveQuestions();
+
+    // 画面を更新
+    showReferencesScreen();
+
+    alert(`${reference.questions.length}問の問題を削除しました`);
+}
 
 // ========================================
 // ユーティリティ関数

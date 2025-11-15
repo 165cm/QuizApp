@@ -622,3 +622,141 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* 参照元管理画面 */
+.references-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.reference-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reference-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.reference-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.reference-info {
+    flex: 1;
+}
+
+.reference-filename {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.reference-date {
+    font-size: 14px;
+    color: #666;
+}
+
+.reference-stats {
+    text-align: right;
+}
+
+.reference-count {
+    font-size: 24px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.reference-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.empty-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: white;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 8px 16px;
+    transition: opacity 0.2s ease;
+}
+
+.btn-text:hover {
+    opacity: 0.8;
+}
+
+/* 見出しリスト */
+.sections-list {
+    margin: 16px 0;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.section-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.section-item:last-child {
+    margin-bottom: 0;
+}
+
+.section-name {
+    font-size: 14px;
+    color: #374151;
+    font-weight: 500;
+    flex: 1;
+}
+
+.section-count {
+    font-size: 13px;
+    color: #667eea;
+    font-weight: 600;
+    background: #ede9fe;
+    padding: 4px 12px;
+    border-radius: 12px;
+}
