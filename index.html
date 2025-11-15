@@ -56,21 +56,102 @@
                 </button>
 
                 <button id="manage-references-btn" class="btn btn-secondary btn-large">
-                    📁 参照元管理
+                    📚 教材ライブラリ
                 </button>
             </div>
         </div>
 
-        <!-- 参照元管理画面 -->
+        <!-- 教材ライブラリ画面 -->
         <div id="references-screen" class="screen">
             <div class="container">
                 <div class="header">
                     <button id="back-to-home-btn" class="btn-text">← 戻る</button>
-                    <h1 class="logo">参照元管理</h1>
+                    <h1 class="logo">📚 教材ライブラリ</h1>
                 </div>
 
-                <div id="references-list" class="references-list">
-                    <!-- 参照元一覧がここに表示されます -->
+                <!-- フィルター・検索バー -->
+                <div class="filter-bar">
+                    <input type="text" id="material-search" class="search-input" placeholder="🔍 教材を検索...">
+                    <select id="tag-filter" class="filter-select">
+                        <option value="">すべてのタグ</option>
+                    </select>
+                    <select id="sort-filter" class="filter-select">
+                        <option value="date-desc">新しい順</option>
+                        <option value="date-asc">古い順</option>
+                        <option value="title">タイトル順</option>
+                        <option value="questions">問題数順</option>
+                    </select>
+                </div>
+
+                <div id="references-list" class="materials-grid">
+                    <!-- 教材カード一覧がここに表示されます -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 教材詳細画面 -->
+        <div id="material-detail-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-library-btn" class="btn-text">← 教材ライブラリへ</button>
+                    <h1 class="material-detail-title" id="material-detail-title">教材詳細</h1>
+                </div>
+
+                <!-- 教材情報 -->
+                <div class="material-info-card">
+                    <h2 id="detail-material-title"></h2>
+                    <p id="detail-material-summary" class="material-summary"></p>
+                    <div id="detail-material-tags" class="material-tags"></div>
+                    <div class="material-meta">
+                        <span id="detail-upload-date"></span>
+                        <span id="detail-question-count"></span>
+                    </div>
+                </div>
+
+                <!-- タブナビゲーション -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="overview">📊 概要</button>
+                    <button class="tab-btn" data-tab="questions">📝 問題一覧</button>
+                    <button class="tab-btn" data-tab="content">📄 本文</button>
+                </div>
+
+                <!-- タブコンテンツ -->
+                <div class="tab-content active" id="tab-overview">
+                    <div class="overview-stats">
+                        <div class="stat-box">
+                            <div class="stat-box-label">総問題数</div>
+                            <div class="stat-box-value" id="overview-total"></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">平均正解率</div>
+                            <div class="stat-box-value" id="overview-accuracy"></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">学習進捗</div>
+                            <div class="stat-box-value" id="overview-progress"></div>
+                        </div>
+                    </div>
+                    <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
+                        この教材から学習する
+                    </button>
+                </div>
+
+                <div class="tab-content" id="tab-questions">
+                    <div id="questions-list" class="questions-list">
+                        <!-- 問題一覧がここに表示されます -->
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-content">
+                    <div id="material-content" class="material-content">
+                        <!-- 本文がここに表示されます（マークダウン形式） -->
+                    </div>
+                </div>
+
+                <div class="material-actions">
+                    <button id="delete-material-btn" class="btn btn-danger">
+                        🗑️ この教材を削除
+                    </button>
                 </div>
             </div>
         </div>

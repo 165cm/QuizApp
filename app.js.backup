@@ -141,41 +141,13 @@ async function generateQuiz(file) {
             throw new Error('PDFからテキストを抽出できませんでした');
         }
 
-        // 教材メタデータ生成
-        updateGeneratingStatus('教材情報を分析中...', 35);
-        const metadata = await generateMaterialMetadata(text, file.name);
-
         // クイズ生成
-        updateGeneratingStatus('AIがクイズを生成中...', 60);
+        updateGeneratingStatus('AIがクイズを生成中...', 50);
         const questions = await generateQuestionsWithAI(text, file.name);
-
-        // 教材IDを生成
-        const materialId = 'mat_' + Date.now();
-
-        // 教材データを作成・保存
-        const material = {
-            id: materialId,
-            title: metadata.title,
-            summary: metadata.summary,
-            fileName: file.name,
-            content: text, // 本文全体を保存（マークダウン形式）
-            tags: metadata.tags || [],
-            uploadDate: new Date().toISOString(),
-            questionIds: questions.map(q => q.id)
-        };
-
-        appState.materials.push(material);
-        saveMaterials();
-
-        // 問題にmaterialIdを追加
-        const questionsWithMaterialId = questions.map(q => ({
-            ...q,
-            materialId: materialId
-        }));
 
         // 保存
         updateGeneratingStatus('保存しています...', 90);
-        appState.questions = [...appState.questions, ...questionsWithMaterialId];
+        appState.questions = [...appState.questions, ...questions];
         saveQuestions();
 
         updateGeneratingStatus('完了!', 100);
@@ -183,7 +155,7 @@ async function generateQuiz(file) {
         setTimeout(() => {
             showScreen('home-screen');
             initHomeScreen();
-            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+            alert(`${questions.length}問のクイズを生成しました!`);
         }, 500);
 
     } catch (error) {
@@ -332,76 +304,6 @@ ${truncatedText}`;
             section: q.sourceSection || '不明'
         }
     }));
-}
-
-// GPTで教材のメタデータ（タイトル・要約・タグ）を生成
-async function generateMaterialMetadata(text, fileName) {
-    const maxChars = 6000; // メタデータ生成用に短めに
-    const truncatedText = text.slice(0, maxChars);
-
-    const prompt = `以下のテキストを分析して、学習教材としてのメタデータを生成してください。
-
-要件:
-1. 教材の内容を表す適切なタイトル（20文字以内）
-2. 教材の内容を要約した説明文（100文字以内）
-3. 教材の内容を表すタグ（3-5個のキーワード）
-4. JSON形式で出力
-
-出力形式:
-{
-  "title": "教材のタイトル",
-  "summary": "教材の要約説明",
-  "tags": ["タグ1", "タグ2", "タグ3"]
-}
-
-テキスト:
-${truncatedText}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'あなたは教育コンテンツの分析専門家です。与えられたテキストから適切なタイトル、要約、タグを生成します。'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.5,
-            response_format: { type: "json_object" }
-        })
-    });
-
-    if (!response.ok) {
-        // メタデータ生成に失敗した場合はデフォルト値を返す
-        return {
-            title: fileName.replace(/\.[^/.]+$/, ''), // 拡張子を除いたファイル名
-            summary: '教材の説明を生成できませんでした。',
-            tags: ['未分類']
-        };
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-
-    try {
-        return JSON.parse(content);
-    } catch (e) {
-        console.error('Metadata JSON parse error:', e);
-        return {
-            title: fileName.replace(/\.[^/.]+$/, ''),
-            summary: '教材の説明を生成できませんでした。',
-            tags: ['未分類']
-        };
-    }
 }
 
 function updateGeneratingStatus(message, progress) {
@@ -798,7 +700,7 @@ document.getElementById('home-btn').addEventListener('click', () => {
 });
 
 document.getElementById('manage-references-btn').addEventListener('click', () => {
-    showMaterialsLibrary();
+    showReferencesScreen();
 });
 
 document.getElementById('back-to-home-btn').addEventListener('click', () => {
@@ -806,360 +708,148 @@ document.getElementById('back-to-home-btn').addEventListener('click', () => {
     initHomeScreen();
 });
 
-document.getElementById('back-to-library-btn')?.addEventListener('click', () => {
-    showMaterialsLibrary();
-});
-
 // ========================================
-// 教材ライブラリ管理
+// 参照元管理
 // ========================================
-let filteredMaterials = [];
+function getReferencesGrouped() {
+    const referencesMap = new Map();
 
-function showMaterialsLibrary() {
+    appState.questions.forEach(q => {
+        // 古い問題（参照元情報がない場合）は「未分類」として扱う
+        if (!q.reference) {
+            if (!referencesMap.has('uncategorized')) {
+                referencesMap.set('uncategorized', {
+                    id: 'uncategorized',
+                    fileName: '未分類',
+                    uploadDate: null,
+                    questions: []
+                });
+            }
+            referencesMap.get('uncategorized').questions.push(q);
+        } else {
+            const refId = q.reference.id;
+            if (!referencesMap.has(refId)) {
+                referencesMap.set(refId, {
+                    id: refId,
+                    fileName: q.reference.fileName,
+                    uploadDate: q.reference.uploadDate,
+                    questions: []
+                });
+            }
+            referencesMap.get(refId).questions.push(q);
+        }
+    });
+
+    // 配列に変換してアップロード日時で降順ソート
+    return Array.from(referencesMap.values()).sort((a, b) => {
+        if (!a.uploadDate) return 1;
+        if (!b.uploadDate) return -1;
+        return new Date(b.uploadDate) - new Date(a.uploadDate);
+    });
+}
+
+function showReferencesScreen() {
+    const references = getReferencesGrouped();
     const container = document.getElementById('references-list');
     container.innerHTML = '';
 
-    if (appState.materials.length === 0) {
-        container.innerHTML = '<div class="empty-message">まだ教材が登録されていません。<br>PDFをアップロードしてクイズを生成してください。</div>';
+    if (references.length === 0) {
+        container.innerHTML = '<div class="empty-message">まだ問題が登録されていません</div>';
         showScreen('references-screen');
         return;
     }
 
-    // フィルターとソートを適用
-    filteredMaterials = applyFiltersAndSort();
+    references.forEach(ref => {
+        const refCard = document.createElement('div');
+        refCard.className = 'reference-card';
 
-    // タグフィルターの選択肢を更新
-    updateTagFilter();
+        const dateStr = ref.uploadDate
+            ? new Date(ref.uploadDate).toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '不明';
 
-    // 教材カードを表示
-    filteredMaterials.forEach(material => {
-        const materialCard = createMaterialCard(material);
-        container.appendChild(materialCard);
+        // 見出し別にグループ化
+        const sectionGroups = new Map();
+        ref.questions.forEach(q => {
+            const section = q.reference?.section || '不明';
+            if (!sectionGroups.has(section)) {
+                sectionGroups.set(section, []);
+            }
+            sectionGroups.get(section).push(q);
+        });
+
+        // 見出し情報のHTML生成
+        let sectionsHTML = '';
+        if (sectionGroups.size > 0) {
+            sectionsHTML = '<div class="sections-list">';
+            sectionGroups.forEach((questions, section) => {
+                sectionsHTML += `
+                    <div class="section-item">
+                        <span class="section-name">${section}</span>
+                        <span class="section-count">${questions.length}問</span>
+                    </div>
+                `;
+            });
+            sectionsHTML += '</div>';
+        }
+
+        refCard.innerHTML = `
+            <div class="reference-header">
+                <div class="reference-info">
+                    <h3 class="reference-filename">📄 ${ref.fileName}</h3>
+                    <p class="reference-date">アップロード日時: ${dateStr}</p>
+                </div>
+                <div class="reference-stats">
+                    <div class="reference-count">${ref.questions.length}問</div>
+                </div>
+            </div>
+            ${sectionsHTML}
+            <div class="reference-actions">
+                <button class="btn btn-danger btn-sm" onclick="deleteReference('${ref.id}')">
+                    🗑️ 削除
+                </button>
+            </div>
+        `;
+
+        container.appendChild(refCard);
     });
 
     showScreen('references-screen');
 }
 
-function createMaterialCard(material) {
-    const card = document.createElement('div');
-    card.className = 'material-card';
+function deleteReference(referenceId) {
+    const references = getReferencesGrouped();
+    const reference = references.find(ref => ref.id === referenceId);
 
-    const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
+    if (!reference) return;
 
-    const questions = appState.questions.filter(q => q.materialId === material.id);
-    const questionCount = questions.length;
-
-    // 正解率を計算
-    const answeredQuestions = questions.filter(q => q.lastReviewed);
-    const correctCount = answeredQuestions.filter(q => q.reviewCount > 0).length;
-    const accuracy = answeredQuestions.length > 0
-        ? Math.round((correctCount / answeredQuestions.length) * 100)
-        : 0;
-
-    // タグHTML生成
-    const tagsHTML = material.tags.map(tag =>
-        `<span class="tag">${tag}</span>`
-    ).join('');
-
-    card.innerHTML = `
-        <div class="material-card-header">
-            <h3 class="material-title">${material.title}</h3>
-            <div class="material-date">📅 ${dateStr}</div>
-        </div>
-        <p class="material-summary">${material.summary}</p>
-        <div class="material-tags">${tagsHTML || '<span class="tag">未分類</span>'}</div>
-        <div class="material-stats">
-            <span class="stat-item">📝 ${questionCount}問</span>
-            <span class="stat-item">📊 正解率 ${accuracy}%</span>
-        </div>
-    `;
-
-    card.addEventListener('click', () => {
-        showMaterialDetail(material.id);
-    });
-
-    return card;
-}
-
-function applyFiltersAndSort() {
-    let materials = [...appState.materials];
-
-    // 検索フィルター
-    const searchQuery = document.getElementById('material-search')?.value.toLowerCase();
-    if (searchQuery) {
-        materials = materials.filter(m =>
-            m.title.toLowerCase().includes(searchQuery) ||
-            m.summary.toLowerCase().includes(searchQuery) ||
-            m.tags.some(tag => tag.toLowerCase().includes(searchQuery))
-        );
-    }
-
-    // タグフィルター
-    const tagFilter = document.getElementById('tag-filter')?.value;
-    if (tagFilter) {
-        materials = materials.filter(m => m.tags.includes(tagFilter));
-    }
-
-    // ソート
-    const sortFilter = document.getElementById('sort-filter')?.value || 'date-desc';
-    switch (sortFilter) {
-        case 'date-desc':
-            materials.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
-            break;
-        case 'date-asc':
-            materials.sort((a, b) => new Date(a.uploadDate) - new Date(b.uploadDate));
-            break;
-        case 'title':
-            materials.sort((a, b) => a.title.localeCompare(b.title, 'ja'));
-            break;
-        case 'questions':
-            materials.sort((a, b) => {
-                const aCount = appState.questions.filter(q => q.materialId === a.id).length;
-                const bCount = appState.questions.filter(q => q.materialId === b.id).length;
-                return bCount - aCount;
-            });
-            break;
-    }
-
-    return materials;
-}
-
-function updateTagFilter() {
-    const select = document.getElementById('tag-filter');
-    if (!select) return;
-
-    // すべてのタグを収集
-    const allTags = new Set();
-    appState.materials.forEach(m => {
-        m.tags.forEach(tag => allTags.add(tag));
-    });
-
-    // 現在の選択を保持
-    const currentValue = select.value;
-
-    // オプションを更新
-    select.innerHTML = '<option value="">すべてのタグ</option>';
-    Array.from(allTags).sort().forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = tag;
-        select.appendChild(option);
-    });
-
-    select.value = currentValue;
-}
-
-// フィルター変更時のイベントリスナー
-document.getElementById('material-search')?.addEventListener('input', showMaterialsLibrary);
-document.getElementById('tag-filter')?.addEventListener('change', showMaterialsLibrary);
-document.getElementById('sort-filter')?.addEventListener('change', showMaterialsLibrary);
-
-function deleteMaterial(materialId) {
-    const material = appState.materials.find(m => m.id === materialId);
-
-    if (!material) return;
-
-    const questionCount = appState.questions.filter(q => q.materialId === materialId).length;
-    const confirmMessage = `教材「${material.title}」とその問題${questionCount}問を削除しますか？\n\nこの操作は取り消せません。`;
+    const confirmMessage = `「${reference.fileName}」の問題${reference.questions.length}問を削除しますか？\n\nこの操作は取り消せません。`;
 
     if (!confirm(confirmMessage)) {
         return;
     }
 
-    // 教材を削除
-    appState.materials = appState.materials.filter(m => m.id !== materialId);
-    saveMaterials();
+    // 該当する参照元の問題を削除
+    if (referenceId === 'uncategorized') {
+        appState.questions = appState.questions.filter(q => q.reference);
+    } else {
+        appState.questions = appState.questions.filter(q =>
+            !q.reference || q.reference.id !== referenceId
+        );
+    }
 
-    // 関連する問題を削除
-    appState.questions = appState.questions.filter(q => q.materialId !== materialId);
     saveQuestions();
 
-    // ライブラリ画面に戻る
-    showMaterialsLibrary();
+    // 画面を更新
+    showReferencesScreen();
 
-    alert(`教材「${material.title}」を削除しました`);
+    alert(`${reference.questions.length}問の問題を削除しました`);
 }
-
-// ========================================
-// 教材詳細ページ
-// ========================================
-function showMaterialDetail(materialId) {
-    const material = appState.materials.find(m => m.id === materialId);
-    if (!material) return;
-
-    appState.currentMaterialId = materialId;
-
-    // 教材情報を表示
-    document.getElementById('detail-material-title').textContent = material.title;
-    document.getElementById('detail-material-summary').textContent = material.summary;
-
-    // タグを表示
-    const tagsContainer = document.getElementById('detail-material-tags');
-    tagsContainer.innerHTML = material.tags.map(tag =>
-        `<span class="tag">${tag}</span>`
-    ).join('') || '<span class="tag">未分類</span>';
-
-    // メタ情報を表示
-    const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    const questions = appState.questions.filter(q => q.materialId === materialId);
-    document.getElementById('detail-upload-date').textContent = `📅 ${dateStr}`;
-    document.getElementById('detail-question-count').textContent = `📝 ${questions.length}問`;
-
-    // 概要タブのデータを更新
-    updateOverviewTab(material, questions);
-
-    // 問題一覧タブのデータを更新
-    updateQuestionsTab(material, questions);
-
-    // 本文タブのデータを更新
-    updateContentTab(material);
-
-    // タブをリセット
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
-    document.getElementById('tab-overview').classList.add('active');
-
-    showScreen('material-detail-screen');
-}
-
-function updateOverviewTab(material, questions) {
-    const total = questions.length;
-    const answeredQuestions = questions.filter(q => q.lastReviewed);
-    const correctCount = answeredQuestions.filter(q => q.reviewCount > 0).length;
-    const accuracy = answeredQuestions.length > 0
-        ? Math.round((correctCount / answeredQuestions.length) * 100)
-        : 0;
-    const progress = total > 0
-        ? Math.round((answeredQuestions.length / total) * 100)
-        : 0;
-
-    document.getElementById('overview-total').textContent = `${total}問`;
-    document.getElementById('overview-accuracy').textContent = `${accuracy}%`;
-    document.getElementById('overview-progress').textContent = `${progress}%`;
-}
-
-function updateQuestionsTab(material, questions) {
-    const container = document.getElementById('questions-list');
-    container.innerHTML = '';
-
-    if (questions.length === 0) {
-        container.innerHTML = '<div class="empty-message">この教材には問題がありません</div>';
-        return;
-    }
-
-    questions.forEach((q, index) => {
-        const questionCard = document.createElement('div');
-        questionCard.className = 'question-item';
-
-        const difficultyBadge = getDifficultyBadge(q.difficulty);
-        const sectionTag = q.reference?.section || q.sourceSection || '不明';
-        const lastReviewed = q.lastReviewed
-            ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
-            : '未学習';
-
-        questionCard.innerHTML = `
-            <div class="question-item-header">
-                <span class="question-number">Q${index + 1}</span>
-                ${difficultyBadge}
-            </div>
-            <div class="question-item-text">${q.question}</div>
-            <div class="question-item-meta">
-                <span class="section-tag">🏷️ ${sectionTag}</span>
-                <span class="last-reviewed">最終学習: ${lastReviewed}</span>
-            </div>
-        `;
-
-        container.appendChild(questionCard);
-    });
-}
-
-function updateContentTab(material) {
-    const container = document.getElementById('material-content');
-
-    // マークダウン形式の本文を表示（シンプルな表示）
-    const content = material.content || 'この教材には本文が保存されていません。';
-
-    // 改行を<br>に変換し、見出しを強調
-    const formattedContent = content
-        .split('\n')
-        .map(line => {
-            if (line.startsWith('# ')) {
-                return `<h1>${line.substring(2)}</h1>`;
-            } else if (line.startsWith('## ')) {
-                return `<h2>${line.substring(3)}</h2>`;
-            } else if (line.startsWith('### ')) {
-                return `<h3>${line.substring(4)}</h3>`;
-            } else if (line.trim() === '') {
-                return '<br>';
-            } else {
-                return `<p>${line}</p>`;
-            }
-        })
-        .join('');
-
-    container.innerHTML = formattedContent;
-}
-
-function getDifficultyBadge(difficulty) {
-    const badges = {
-        'basic': '<span class="difficulty-badge basic">基礎</span>',
-        'standard': '<span class="difficulty-badge standard">標準</span>',
-        'advanced': '<span class="difficulty-badge advanced">応用</span>'
-    };
-    return badges[difficulty] || '<span class="difficulty-badge">不明</span>';
-}
-
-// タブ切り替え
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-tab');
-
-        // すべてのタブボタンとコンテンツから active を削除
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-        // クリックされたタブをアクティブに
-        btn.classList.add('active');
-        document.getElementById(`tab-${tab}`).classList.add('active');
-    });
-});
-
-// この教材から学習するボタン
-document.getElementById('start-material-quiz-btn')?.addEventListener('click', () => {
-    const materialId = appState.currentMaterialId;
-    if (!materialId) return;
-
-    const questions = appState.questions.filter(q => q.materialId === materialId);
-    if (questions.length === 0) {
-        alert('この教材には問題がありません');
-        return;
-    }
-
-    // 問題をシャッフルして最大10問選択
-    appState.currentQuiz = shuffleArray(questions).slice(0, 10);
-    appState.currentQuestionIndex = 0;
-    appState.currentSession = { correct: 0, total: 0 };
-
-    showScreen('quiz-screen');
-    displayQuestion();
-});
-
-// 教材削除ボタン
-document.getElementById('delete-material-btn')?.addEventListener('click', () => {
-    const materialId = appState.currentMaterialId;
-    if (materialId) {
-        deleteMaterial(materialId);
-    }
-});
 
 // ========================================
 // ユーティリティ関数
