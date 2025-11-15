@@ -3254,3 +3254,72 @@ body {
     border-color: #f59e0b;
     background: #fffbeb;
 }
+
+/* ========================================
+   問題一覧（ミニ版・コンパクト）
+   ======================================== */
+.question-item-mini {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+}
+
+.question-item-mini:hover {
+    border-color: #667eea;
+}
+
+.question-mini-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.question-mini-row.answer-row {
+    margin-bottom: 0;
+    align-items: center;
+}
+
+.question-mini-label {
+    font-weight: 700;
+    color: #667eea;
+    min-width: 20px;
+    font-size: 14px;
+}
+
+.question-mini-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+}
+
+.question-mini-answer {
+    flex: 1;
+    font-size: 14px;
+    color: #059669;
+    font-weight: 600;
+}
+
+.btn-icon-mini {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.btn-icon-mini:hover {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
