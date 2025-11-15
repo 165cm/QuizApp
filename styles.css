@@ -1133,6 +1133,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* チラつき防止 */
+    will-change: contents;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+    transition: opacity 0.15s ease-in-out;
 }
 
 .btn-modal {
