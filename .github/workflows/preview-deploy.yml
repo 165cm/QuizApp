@@ -1,0 +1,61 @@
+name: Preview Deployment
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        id: vercel-deploy
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Comment Preview URL
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
+            const branch = context.ref.replace('refs/heads/', '');
+            const sha = context.sha.substring(0, 7);
+
+            const message = `## 🚀 プレビューデプロイ完了！
+
+            ✅ **ブランチ**: \`${branch}\`
+            📦 **コミット**: \`${sha}\`
+            🔗 **プレビューURL**: ${previewUrl}
+
+            このURLでアプリの動作確認ができます！`;
+
+            // Get the latest commit
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              per_page: 1
+            });
+
+            if (commits.data.length > 0) {
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: message
+              });
+            }
