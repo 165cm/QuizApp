@@ -1615,13 +1615,13 @@ function generateShareData(materialId) {
 
     const questions = appState.questions.filter(q => q.materialId === materialId);
 
-    // 共有用データ（個人情報を含まない）
+    // 共有用データ（個人情報を含まない、contentは除外してURLサイズを削減）
     const shareData = {
         version: 1,
         material: {
             title: material.title,
             summary: material.summary,
-            content: material.content,
+            // contentは除外（URLサイズ削減のため）
             tags: material.tags,
             fileName: material.fileName
         },
@@ -1647,7 +1647,14 @@ function generateShareURL(materialId) {
     const jsonStr = JSON.stringify(shareData);
     const compressed = LZString.compressToEncodedURIComponent(jsonStr);
     const baseURL = window.location.href.split('?')[0];
-    return `${baseURL}?share=${compressed}`;
+    const shareURL = `${baseURL}?share=${compressed}`;
+
+    // URLの長さチェック（ブラウザの制限は約2000文字）
+    if (shareURL.length > 2000) {
+        console.warn(`Share URL is too long: ${shareURL.length} characters`);
+    }
+
+    return shareURL;
 }
 
 /**
@@ -1656,6 +1663,19 @@ function generateShareURL(materialId) {
 async function copyShareURL(materialId) {
     try {
         const url = generateShareURL(materialId);
+
+        // URLの長さチェック
+        if (url.length > 2000) {
+            const proceed = confirm(
+                `共有URLが長すぎます（${url.length}文字）。\n` +
+                'ブラウザによっては正しく動作しない可能性があります。\n\n' +
+                'それでもコピーしますか？'
+            );
+            if (!proceed) {
+                return false;
+            }
+        }
+
         await navigator.clipboard.writeText(url);
         return true;
     } catch (err) {
@@ -1672,6 +1692,15 @@ function generateQRCode(materialId) {
         const url = generateShareURL(materialId);
         const qrContainer = document.getElementById('qr-code');
         qrContainer.innerHTML = ''; // 既存のQRコードをクリア
+
+        // URLの長さチェック
+        if (url.length > 2000) {
+            alert(
+                `共有URLが長すぎます（${url.length}文字）。\n` +
+                'QRコードは生成できますが、一部のQRコードリーダーで読み取れない可能性があります。\n\n' +
+                '問題数の少ない教材での共有をおすすめします。'
+            );
+        }
 
         // QRCodeライブラリが読み込まれているか確認
         if (typeof QRCode === 'undefined') {
@@ -1706,7 +1735,8 @@ function importSharedMaterial(shareData) {
         id: newMaterialId,
         title: shareData.material.title + ' (共有)',
         summary: shareData.material.summary,
-        content: shareData.material.content,
+        // contentがない場合は要約から生成
+        content: shareData.material.content || `# ${shareData.material.title}\n\n${shareData.material.summary}\n\n*この教材は共有URLからインポートされたため、元の本文は含まれていません。*`,
         tags: shareData.material.tags,
         fileName: shareData.material.fileName,
         uploadDate: new Date().toISOString(),
