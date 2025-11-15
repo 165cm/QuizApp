@@ -3323,3 +3323,126 @@ body {
     border-color: #ef4444;
     background: #fef2f2;
 }
+
+/* ========================================
+   早期アクセス登録セクション
+   ======================================== */
+.early-access-section {
+    margin-top: 40px;
+}
+
+.early-access-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 32px;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.early-access-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.early-access-icon {
+    font-size: 32px;
+}
+
+.early-access-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+}
+
+.early-access-description {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    opacity: 0.95;
+}
+
+.email-signup-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.email-input {
+    flex: 1;
+    padding: 14px 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #1f2937;
+    transition: all 0.2s;
+}
+
+.email-input:focus {
+    outline: none;
+    border-color: white;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.email-input::placeholder {
+    color: #9ca3af;
+}
+
+.email-signup-form .btn {
+    padding: 14px 32px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: white;
+    color: #667eea;
+    border: none;
+}
+
+.email-signup-form .btn:hover {
+    background: #f9fafb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.privacy-note {
+    font-size: 13px;
+    opacity: 0.9;
+    margin: 0;
+    text-align: center;
+}
+
+.privacy-link {
+    color: white;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.privacy-link:hover {
+    opacity: 0.8;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 600px) {
+    .early-access-card {
+        padding: 24px;
+    }
+
+    .early-access-title {
+        font-size: 20px;
+    }
+
+    .early-access-description {
+        font-size: 14px;
+    }
+
+    .email-signup-form {
+        flex-direction: column;
+    }
+
+    .email-signup-form .btn {
+        width: 100%;
+    }
+}

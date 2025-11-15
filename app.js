@@ -2009,6 +2009,39 @@ function generateShareURL(materialId) {
 }
 
 /**
+ * 認定証共有データを生成（軽量版）
+ */
+function generateCertificateShareData() {
+    const { correct, total } = appState.currentSession;
+    const accuracy = Math.round((correct / total) * 100);
+    const quizTitle = appState.sharedQuizTitle || 'クイズ';
+    const now = new Date();
+
+    return {
+        version: 1,
+        type: 'certificate',
+        quizTitle: quizTitle,
+        accuracy: accuracy,
+        correct: correct,
+        total: total,
+        date: now.toISOString()
+    };
+}
+
+/**
+ * 認定証共有URLを生成（短縮版）
+ */
+function generateCertificateShareURL() {
+    const certData = generateCertificateShareData();
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(certData));
+    const baseURL = window.location.href.split('?')[0];
+    const shareURL = `${baseURL}?cert=${compressed}`;
+
+    console.log(`Certificate share URL generated: ${shareURL.length} characters`);
+    return shareURL;
+}
+
+/**
  * URLをクリップボードにコピー（LZ-string圧縮使用）
  */
 function copyShareURL(materialId) {
@@ -2146,6 +2179,87 @@ function checkForSharedMaterial() {
 }
 
 /**
+ * ページ読み込み時に認定証URLパラメータをチェック
+ */
+function checkForSharedCertificate() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const cert = urlParams.get('cert');
+
+    if (!cert) {
+        return false;  // 認定証パラメータなし
+    }
+
+    try {
+        console.log('Loading from certificate URL (LZ-string compressed)');
+        const decompressed = LZString.decompressFromEncodedURIComponent(cert);
+
+        if (!decompressed) {
+            throw new Error('URLの解凍に失敗しました。URLが正しいか確認してください。');
+        }
+
+        const certData = JSON.parse(decompressed);
+        console.log('Parsed certificate data:', certData);
+
+        // バージョン・タイプチェック
+        if (certData.version !== 1 || certData.type !== 'certificate') {
+            throw new Error('サポートされていないデータ形式です');
+        }
+
+        // 認定証画面を表示
+        showSharedCertificate(certData);
+
+        // URLはクリーンアップしない（戻るボタンで戻れるように）
+        return true;
+    } catch (err) {
+        console.error('Failed to load shared certificate:', err);
+        console.error('Error details:', err.message, err.stack);
+        alert(`認定証の読み込みに失敗しました。\n\nエラー: ${err.message}\n\nURLが正しいか確認してください。`);
+
+        // エラー時はURLをクリーンアップ
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return false;
+    }
+}
+
+/**
+ * 共有された認定証を表示
+ */
+function showSharedCertificate(certData) {
+    const { quizTitle, accuracy, correct, total, date } = certData;
+
+    // 認定書の内容を設定
+    document.getElementById('cert-quiz-title').textContent = quizTitle;
+    document.getElementById('cert-score').textContent = `${accuracy}%`;
+    document.getElementById('cert-detail').textContent = `(${total}問中${correct}問正解)`;
+
+    // 日付を設定
+    const certDate = new Date(date);
+    const dateStr = `${certDate.getFullYear()}年${certDate.getMonth() + 1}月${certDate.getDate()}日`;
+    document.getElementById('cert-date').textContent = dateStr;
+
+    // 認定書画面を表示（共有モード）
+    appState.isSharedQuiz = true; // 共有モードフラグ
+    appState.sharedQuizTitle = quizTitle;
+    appState.currentSession = { correct, total };
+
+    // 共有された認定証を見ている場合は「もう一度挑戦」ボタンを非表示
+    // （クイズデータがないため）
+    const tryAgainBtn = document.getElementById('try-again-btn');
+    if (tryAgainBtn) {
+        tryAgainBtn.style.display = 'none';
+    }
+
+    // シェアボタンのテキストを変更
+    const shareCertBtn = document.getElementById('share-certificate-btn');
+    if (shareCertBtn) {
+        shareCertBtn.textContent = '📤 私も結果をシェア';
+        shareCertBtn.style.display = 'none'; // まだクイズを受けていないので非表示
+    }
+
+    showScreen('certificate-screen');
+}
+
+/**
  * シェア専用LP画面を表示
  */
 function showSharedQuizLanding(materialId, shareData) {
@@ -2183,7 +2297,13 @@ function showSharedQuizLanding(materialId, shareData) {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     // 共有URLのチェック（最初に実行）
-    checkForSharedMaterial();
+    // 認定証URLを優先してチェック
+    const isCertificate = checkForSharedCertificate();
+
+    // 認定証でない場合は教材共有をチェック
+    if (!isCertificate) {
+        checkForSharedMaterial();
+    }
     // ========================================
     // ホーム画面タブ切り替え
     // ========================================
@@ -2397,21 +2517,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const accuracy = Math.round((correct / total) * 100);
             const quizTitle = appState.sharedQuizTitle || 'クイズ';
 
-            // 結果をテキストで共有
-            const shareText = `🏆 ${quizTitle}の認定証を獲得しました！\n\n正解率: ${accuracy}% (${total}問中${correct}問正解)\n\nあなたも挑戦してみませんか？`;
+            try {
+                // 認定証専用の短縮URLを生成
+                const certURL = generateCertificateShareURL();
 
-            if (navigator.share) {
-                // Web Share API が使える場合
-                navigator.share({
-                    title: '認定証',
-                    text: shareText,
-                    url: window.location.href
-                }).catch(err => console.log('Share failed:', err));
-            } else {
-                // フォールバック: クリップボードにコピー
-                navigator.clipboard.writeText(shareText + '\n' + window.location.href)
-                    .then(() => alert('結果をクリップボードにコピーしました！'))
-                    .catch(err => console.error('Copy failed:', err));
+                // 心理学に基づく魅力的な共有メッセージ
+                // - 社会的比較による動機付け
+                // - 競争心を刺激
+                // - 短くパンチの効いた表現
+                const shareText = `${quizTitle}で正解率${accuracy}%を達成！🎯 あなたは何%取れる？挑戦してみて！`;
+
+                if (navigator.share) {
+                    // Web Share API が使える場合
+                    navigator.share({
+                        title: `${quizTitle} - 正解率${accuracy}%`,
+                        text: shareText,
+                        url: certURL
+                    }).catch(err => console.log('Share failed:', err));
+                } else {
+                    // フォールバック: クリップボードにコピー
+                    navigator.clipboard.writeText(shareText + '\n' + certURL)
+                        .then(() => alert('認定証URLをクリップボードにコピーしました！'))
+                        .catch(err => console.error('Copy failed:', err));
+                }
+            } catch (err) {
+                console.error('Failed to generate certificate share URL:', err);
+                alert('共有URLの生成に失敗しました。');
             }
         });
     }
