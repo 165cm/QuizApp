@@ -4,7 +4,7 @@
 let appState = {
     apiKey: localStorage.getItem('openai_api_key') || '',
     questions: JSON.parse(localStorage.getItem('questions') || '[]'),
-    materials: JSON.parse(localStorage.getItem('materials') || '[]'), // 新規追加：教材データ
+    materials: JSON.parse(localStorage.getItem('materials') || '[]'),
     userStats: JSON.parse(localStorage.getItem('user_stats') || JSON.stringify({
         totalAnswered: 0,
         correctAnswers: 0,
@@ -18,7 +18,10 @@ let appState = {
         total: 0
     },
     selectedAnswer: null,
-    currentMaterialId: null // 新規追加：現在表示中の教材ID
+    currentMaterialId: null,
+    // 学習設定
+    selectedMaterial: 'all', // 選択された教材ID（'all'は全問題）
+    questionCount: 10 // 出題数
 };
 
 // ========================================
@@ -36,6 +39,7 @@ function showScreen(screenId) {
 // ========================================
 function initHomeScreen() {
     updateStats();
+    updateMaterialSelect();
     updateStartButton();
 }
 
@@ -81,16 +85,43 @@ function updateStreak() {
     }
 }
 
+function updateMaterialSelect() {
+    const select = document.getElementById('material-select');
+    if (!select) return;
+
+    // 現在の選択を保持
+    const currentValue = select.value;
+
+    // 全問題オプションを残してリセット
+    select.innerHTML = '<option value="all">全ての問題からランダム</option>';
+
+    // 教材リストを追加（学習履歴の新しい順）
+    const materials = [...appState.materials].sort((a, b) =>
+        new Date(b.uploadDate) - new Date(a.uploadDate)
+    ).slice(0, 10); // 最新10件のみ
+
+    materials.forEach(material => {
+        const option = document.createElement('option');
+        option.value = material.id;
+        const questionCount = appState.questions.filter(q => q.materialId === material.id).length;
+        option.textContent = `${material.title} (${questionCount}問)`;
+        select.appendChild(option);
+    });
+
+    // 選択を復元
+    select.value = currentValue;
+    appState.selectedMaterial = select.value;
+}
+
 function updateStartButton() {
     const btn = document.getElementById('start-quiz-btn');
-    const todayQuizCount = getTodayQuizCount();
 
     if (appState.questions.length === 0) {
         btn.disabled = true;
         btn.textContent = 'まずクイズを生成してください';
     } else {
         btn.disabled = false;
-        document.getElementById('today-quiz-count').textContent = `(${todayQuizCount}問)`;
+        btn.textContent = '学習を開始する';
     }
 }
 
@@ -191,6 +222,118 @@ async function generateQuiz(file) {
         alert('クイズの生成に失敗しました: ' + error.message);
         showScreen('home-screen');
     }
+}
+
+// テキストからクイズを生成
+async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
+    showScreen('generating-screen');
+
+    try {
+        // テキストをマークダウン形式に変換
+        updateGeneratingStatus('テキストを整形中...', 20);
+        const markdownText = await convertTextToMarkdown(rawText);
+
+        // 教材メタデータ生成
+        updateGeneratingStatus('教材情報を分析中...', 35);
+        const metadata = await generateMaterialMetadata(markdownText, fileName);
+
+        // クイズ生成
+        updateGeneratingStatus('AIがクイズを生成中...', 60);
+        const questions = await generateQuestionsWithAI(markdownText, fileName);
+
+        // 教材IDを生成
+        const materialId = 'mat_' + Date.now();
+
+        // 教材データを作成・保存
+        const material = {
+            id: materialId,
+            title: metadata.title,
+            summary: metadata.summary,
+            fileName: fileName,
+            content: markdownText, // マークダウン形式の本文
+            tags: metadata.tags || [],
+            uploadDate: new Date().toISOString(),
+            questionIds: questions.map(q => q.id)
+        };
+
+        appState.materials.push(material);
+        saveMaterials();
+
+        // 問題にmaterialIdを追加
+        const questionsWithMaterialId = questions.map(q => ({
+            ...q,
+            materialId: materialId
+        }));
+
+        // 保存
+        updateGeneratingStatus('保存しています...', 90);
+        appState.questions = [...appState.questions, ...questionsWithMaterialId];
+        saveQuestions();
+
+        updateGeneratingStatus('完了!', 100);
+
+        // テキスト入力欄をクリア
+        document.getElementById('text-input').value = '';
+
+        setTimeout(() => {
+            showScreen('home-screen');
+            initHomeScreen();
+            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+        }, 500);
+
+    } catch (error) {
+        console.error('クイズ生成エラー:', error);
+        alert('クイズの生成に失敗しました: ' + error.message);
+        showScreen('home-screen');
+    }
+}
+
+// GPTでテキストをマークダウン形式に変換
+async function convertTextToMarkdown(text) {
+    const maxChars = 12000;
+    const truncatedText = text.slice(0, maxChars);
+
+    const prompt = `以下のテキストを見やすいマークダウン形式に整形してください。
+
+要件:
+1. 適切な見出し（#, ##, ###）を追加
+2. 段落を整理
+3. 重要な部分を強調（**太字**）
+4. リストがあれば箇条書きに変換
+5. 元の内容を変更せず、構造化のみ行う
+
+テキスト:
+${truncatedText}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${appState.apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'あなたはテキスト整形の専門家です。与えられたテキストを見やすいマークダウン形式に整形します。'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.3
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'テキスト整形に失敗しました');
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
 }
 
 async function extractTextFromPDF(file) {
@@ -415,8 +558,8 @@ function updateGeneratingStatus(message, progress) {
 document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
 
 function startQuiz() {
-    // 今日のクイズを選択
-    appState.currentQuiz = selectTodayQuestions();
+    // ユーザー設定に基づいてクイズを選択
+    appState.currentQuiz = selectQuestions();
     appState.currentQuestionIndex = 0;
     appState.currentSession = { correct: 0, total: 0 };
 
@@ -427,6 +570,23 @@ function startQuiz() {
 
     showScreen('quiz-screen');
     displayQuestion();
+}
+
+function selectQuestions() {
+    // 教材フィルター
+    let availableQuestions = appState.selectedMaterial === 'all'
+        ? appState.questions
+        : appState.questions.filter(q => q.materialId === appState.selectedMaterial);
+
+    if (availableQuestions.length === 0) {
+        return [];
+    }
+
+    // 出題数の設定
+    const count = Math.min(appState.questionCount, availableQuestions.length);
+
+    // ランダムシャッフルして指定数を選択
+    return shuffleArray(availableQuestions).slice(0, count);
 }
 
 function selectTodayQuestions() {
@@ -1172,6 +1332,65 @@ function shuffleArray(array) {
     }
     return newArray;
 }
+
+// ========================================
+// ホーム画面UI - PDF/テキスト切り替え
+// ========================================
+document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const mode = tab.getAttribute('data-mode');
+
+        // タブの切り替え
+        document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // コンテンツの切り替え
+        document.querySelectorAll('.input-mode').forEach(m => m.classList.remove('active'));
+        document.getElementById(`${mode}-mode`).classList.add('active');
+    });
+});
+
+// ========================================
+// ホーム画面UI - 出題数選択
+// ========================================
+document.querySelectorAll('.count-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const count = parseInt(btn.getAttribute('data-count'));
+        appState.questionCount = count;
+
+        // ボタンの選択状態を更新
+        document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+});
+
+// ========================================
+// ホーム画面UI - 教材選択
+// ========================================
+document.getElementById('material-select')?.addEventListener('change', (e) => {
+    appState.selectedMaterial = e.target.value;
+});
+
+// ========================================
+// テキストから問題生成
+// ========================================
+document.getElementById('generate-from-text-btn')?.addEventListener('click', async function() {
+    const textInput = document.getElementById('text-input');
+    const text = textInput.value.trim();
+
+    if (!text || text.length < 100) {
+        alert('少なくとも100文字以上のテキストを入力してください');
+        return;
+    }
+
+    // APIキーの確認
+    if (!appState.apiKey) {
+        showApiKeyModal();
+        return;
+    }
+
+    await generateQuizFromText(text, 'テキスト入力');
+});
 
 // ========================================
 // 初期化

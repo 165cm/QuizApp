@@ -21,6 +21,34 @@
                     </div>
                 </div>
 
+                <!-- 学習開始セクション（最優先） -->
+                <div class="quick-start-section">
+                    <h2>🚀 学習を始める</h2>
+                    <div class="study-config">
+                        <div class="config-row">
+                            <label class="config-label">出題範囲</label>
+                            <select id="material-select" class="config-select">
+                                <option value="all">全ての問題からランダム</option>
+                            </select>
+                        </div>
+                        <div class="config-row">
+                            <label class="config-label">出題数</label>
+                            <div class="question-count-selector">
+                                <button class="count-btn" data-count="5">5問</button>
+                                <button class="count-btn active" data-count="10">10問</button>
+                                <button class="count-btn" data-count="15">15問</button>
+                                <button class="count-btn" data-count="20">20問</button>
+                                <button class="count-btn" data-count="25">25問</button>
+                                <button class="count-btn" data-count="30">30問</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="start-quiz-btn" class="btn btn-success btn-large">
+                        学習を開始する
+                    </button>
+                </div>
+
+                <!-- 統計 -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-label">総問題数</div>
@@ -36,24 +64,41 @@
                     </div>
                 </div>
 
+                <!-- 教材追加セクション -->
                 <div class="upload-section">
                     <h2>新しい教材を追加</h2>
-                    <div class="upload-box">
-                        <input type="file" id="pdf-input" accept=".pdf" hidden>
-                        <label for="pdf-input" class="upload-label">
-                            <div class="upload-icon">📄</div>
-                            <div class="upload-text">PDFファイルを選択</div>
-                            <div class="upload-subtext">クリックしてファイルを選択</div>
-                        </label>
-                        <div id="file-name" class="file-name"></div>
-                    </div>
-                    <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
-                </div>
 
-                <button id="start-quiz-btn" class="btn btn-success btn-large" disabled>
-                    今日の学習を始める
-                    <span id="today-quiz-count"></span>
-                </button>
+                    <!-- PDF/テキスト切り替えタブ -->
+                    <div class="input-mode-tabs">
+                        <button class="mode-tab active" data-mode="pdf">📄 PDF</button>
+                        <button class="mode-tab" data-mode="text">📝 テキスト</button>
+                    </div>
+
+                    <!-- PDFモード -->
+                    <div id="pdf-mode" class="input-mode active">
+                        <div class="upload-box">
+                            <input type="file" id="pdf-input" accept=".pdf" hidden>
+                            <label for="pdf-input" class="upload-label">
+                                <div class="upload-icon">📄</div>
+                                <div class="upload-text">PDFファイルを選択</div>
+                                <div class="upload-subtext">クリックしてファイルを選択</div>
+                            </label>
+                            <div id="file-name" class="file-name"></div>
+                        </div>
+                        <button id="generate-btn" class="btn btn-primary" disabled>クイズを生成</button>
+                    </div>
+
+                    <!-- テキストモード -->
+                    <div id="text-mode" class="input-mode">
+                        <textarea id="text-input" class="text-input-area" placeholder="学習したいテキストをここに貼り付けてください...
+
+例：
+歴史の教科書の一部、プログラミングのドキュメント、論文の要約など
+
+※ テキストはGPTにより自動的に見出し付きのマークダウン形式に整形されます"></textarea>
+                        <button id="generate-from-text-btn" class="btn btn-primary">テキストからクイズを生成</button>
+                    </div>
+                </div>
 
                 <button id="manage-references-btn" class="btn btn-secondary btn-large">
                     📚 教材ライブラリ
