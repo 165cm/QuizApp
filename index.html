@@ -35,24 +35,6 @@
                     </div>
                     <button id="start-shared-quiz-btn" class="btn-landing-start">クイズを始める</button>
                 </div>
-
-                <!-- メール登録セクション -->
-                <div class="landing-cta">
-                    <div class="cta-box">
-                        <h3 class="cta-title">自分でもクイズを作りたい方へ</h3>
-                        <p class="cta-description">
-                            PDFやテキストから自動でクイズを生成！<br>
-                            早期アクセス登録で特別価格をご案内します。
-                        </p>
-                        <form id="email-signup-form" class="email-form">
-                            <input type="email" id="email-input" class="email-input" placeholder="メールアドレスを入力" required>
-                            <button type="submit" class="btn-email-submit">登録する</button>
-                        </form>
-                        <p class="privacy-note">
-                            <a href="#" id="privacy-policy-link">プライバシーポリシー</a>を確認してください
-                        </p>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -195,16 +177,26 @@
                 </div>
 
                 <div class="home-tab-content" id="tab-generate">
+                    <button id="manage-references-btn" class="btn btn-secondary btn-large-compact" style="margin-bottom: 20px;">
+                        📚 教材ライブラリ
+                    </button>
+
                     <!-- 教材追加セクション -->
                     <div class="upload-section-compact">
                         <!-- PDF/テキスト切り替えタブ -->
                         <div class="input-mode-tabs-compact">
-                            <button class="mode-tab-compact active" data-mode="pdf">📄 PDF</button>
-                            <button class="mode-tab-compact" data-mode="text">📝 テキスト</button>
+                            <button class="mode-tab-compact active" data-mode="text">📝 テキスト</button>
+                            <button class="mode-tab-compact" data-mode="pdf">📄 PDF</button>
+                        </div>
+
+                        <!-- テキストモード -->
+                        <div id="text-mode" class="input-mode active">
+                            <textarea id="text-input" class="text-input-area-compact" placeholder="学習したいテキストを貼り付け..."></textarea>
+                            <button id="generate-from-text-btn" class="btn btn-primary btn-large-compact">テキストからクイズを生成</button>
                         </div>
 
                         <!-- PDFモード -->
-                        <div id="pdf-mode" class="input-mode active">
+                        <div id="pdf-mode" class="input-mode">
                             <div class="upload-box-compact">
                                 <input type="file" id="pdf-input" accept=".pdf" hidden>
                                 <label for="pdf-input" class="upload-label-compact">
@@ -215,17 +207,7 @@
                             </div>
                             <button id="generate-btn" class="btn btn-primary btn-large-compact" disabled>クイズを生成</button>
                         </div>
-
-                        <!-- テキストモード -->
-                        <div id="text-mode" class="input-mode">
-                            <textarea id="text-input" class="text-input-area-compact" placeholder="学習したいテキストを貼り付け..."></textarea>
-                            <button id="generate-from-text-btn" class="btn btn-primary btn-large-compact">テキストからクイズを生成</button>
-                        </div>
                     </div>
-
-                    <button id="manage-references-btn" class="btn btn-secondary btn-large-compact">
-                        📚 教材ライブラリ
-                    </button>
                 </div>
 
                 <div class="home-tab-content" id="tab-report">
@@ -295,6 +277,16 @@
                     </div>
                 </div>
 
+                <!-- アクションボタン -->
+                <div class="material-action-buttons" style="margin-bottom: 24px;">
+                    <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
+                        学習する
+                    </button>
+                    <button id="share-material-btn" class="btn btn-secondary btn-large">
+                        📤 シェア
+                    </button>
+                </div>
+
                 <!-- タブナビゲーション -->
                 <div class="tab-navigation">
                     <button class="tab-btn active" data-tab="overview">📊 概要</button>
@@ -317,14 +309,6 @@
                             <div class="stat-box-label">学習進捗</div>
                             <div class="stat-box-value" id="overview-progress"></div>
                         </div>
-                    </div>
-                    <div class="material-action-buttons">
-                        <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
-                            学習する
-                        </button>
-                        <button id="share-material-btn" class="btn btn-secondary btn-large">
-                            📤 シェア
-                        </button>
                     </div>
                 </div>
 
