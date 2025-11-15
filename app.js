@@ -431,14 +431,36 @@ async function generateQuestionsWithAI(text, fileName) {
 
     const prompt = `以下のテキストから30問の4択クイズを生成してください。
 
-要件:
-1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出してください
-2. 各見出しセクションから問題を生成し、各問題に対応する見出しを記録してください
-3. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
-4. 選択肢には「よくある誤解」を含める(実は間違えた効果)
-5. 各問題には5つ程度の関連タグを付けてください（例: "歴史", "江戸時代", "政治", "社会構造", "経済"）
+【重要】知的好奇心をくすぐるエンタメ性のあるクイズを作成すること！
+
+## 問題文の作成方針:
+- 単なる暗記問題ではなく、「なぜ？」「どうして？」と考えさせる問題にする
+- 具体例、エピソード、たとえ話を織り交ぜて興味を引く
+- 意外性や驚きの要素を含める（「実は...」「一見〇〇に見えるが...」など）
+- 日常生活や身近な例と関連付けて親しみやすくする
+- 問題文は2-3文程度で、ストーリー性を持たせる
+
+例：❌「光合成を行う細胞小器官は？」
+    ✅「植物が太陽光を使ってエネルギーを作り出す工場のような役割を果たしている細胞小器官。人間で例えると"発電所"に当たるこの器官は？」
+
+## 解説文の作成方針:
+- なぜその答えが正しいのか、背景や理由を丁寧に説明
+- 関連する豆知識や面白いエピソードを追加
+- 間違いの選択肢についても「なぜ間違いやすいか」を説明
+- 実社会での応用例や影響を示す
+- 「〜なんです！」「実は〜」など、語りかけるような親しみやすい口調
+- 解説は4-6文程度で、読み応えがあり知的好奇心を満たす内容に
+
+例：❌「葉緑体です。」
+    ✅「正解は葉緑体です！葉緑体は、植物細胞の中にある緑色の小器官で、太陽の光エネルギーを化学エネルギーに変換する光合成を行います。実は、葉緑体はもともと独立した生物（シアノバクテリア）だったという説があり、大昔に植物の祖先と共生関係を結んで細胞内に取り込まれたと考えられています。まさに"体内発電所"として、地球上のほぼすべての生命を支えているんです！」
+
+## その他の要件:
+1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出
+2. 各見出しセクションから問題を生成し、対応する見出しを記録
+3. 難易度: 基礎(10問)、標準(10問)、応用(10問)
+4. 選択肢には「よくある誤解」や「ひっかけ」を含める
+5. 各問題に5つ程度の関連タグを付与
 6. JSON形式で出力
-7. 日本語で出力
 
 出力形式:
 {
@@ -446,18 +468,14 @@ async function generateQuestionsWithAI(text, fileName) {
     {
       "heading": "見出し1",
       "level": 1
-    },
-    {
-      "heading": "見出し2",
-      "level": 1
     }
   ],
   "questions": [
     {
-      "question": "問題文",
+      "question": "知的好奇心をくすぐる問題文（2-3文、ストーリー性あり）",
       "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
       "correctIndex": 0,
-      "explanation": "解説文",
+      "explanation": "親しみやすく語りかけるような解説文（4-6文、豆知識や背景情報を含む）",
       "difficulty": "basic",
       "sourceSection": "見出し1",
       "tags": ["タグ1", "タグ2", "タグ3", "タグ4", "タグ5"]
@@ -466,10 +484,9 @@ async function generateQuestionsWithAI(text, fileName) {
 }
 
 注意:
-- sourceSectionは必ず上記sectionsの中のheadingのいずれかと一致すること
-- 見出しが明確でない場合は、テキストの内容から適切なトピック名を作成してください
-- すべての問題に必ずsourceSectionとtagsを含めてください
-- タグは問題の内容を表す具体的で有用なキーワードにしてください
+- sourceSectionは必ずsectionsのheadingと一致させること
+- すべての問題に必ずsourceSectionとtagsを含めること
+- 解説は単なる答えの繰り返しではなく、学習者の知的好奇心を刺激する内容に！
 
 テキスト:
 ${truncatedText}`;
@@ -485,7 +502,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成し、各問題の参照元セクションを明確に記録します。'
+                    content: 'あなたは、知的好奇心をくすぐる教育エンターテインメントの専門家です。単なる暗記クイズではなく、学習者が「面白い！」「もっと知りたい！」と思えるような、ストーリー性と驚きに満ちた問題と解説を作成します。問題は具体例や比喩を使って親しみやすく、解説は豆知識や背景情報を含めて読み応えのある内容にします。'
                 },
                 {
                     role: 'user',
@@ -553,18 +570,26 @@ async function generateMaterialMetadata(text, fileName) {
     const maxChars = 6000; // メタデータ生成用に短めに
     const truncatedText = text.slice(0, maxChars);
 
-    const prompt = `以下のテキストを分析して、学習教材としてのメタデータを生成してください。
+    const prompt = `以下のテキストを分析して、魅力的な学習教材としてのメタデータを生成してください。
 
 要件:
-1. 教材の内容を表す適切なタイトル（20文字以内）
-2. 教材の内容を要約した説明文（100文字以内）
-3. 教材の内容を表すタグ（3-5個のキーワード）
+1. **タイトル**: 教材の内容を表すキャッチーで興味を引くタイトル（20文字以内）
+   - 単なる要約ではなく、学習意欲を喚起するタイトルに
+   - 例: ❌「経済学の基礎」→ ✅「お金の流れで読み解く世界経済」
+
+2. **要約**: 教材の魅力を伝える説明文（100文字以内）
+   - 「この教材で何が学べるか」「なぜ面白いか」を明確に
+   - 具体的で読者の好奇心をくすぐる内容に
+
+3. **タグ**: 教材の内容を表す具体的なキーワード（3-5個）
+   - 検索しやすく、内容を的確に表すタグ
+
 4. JSON形式で出力
 
 出力形式:
 {
-  "title": "教材のタイトル",
-  "summary": "教材の要約説明",
+  "title": "魅力的な教材タイトル",
+  "summary": "学習意欲をかき立てる要約説明",
   "tags": ["タグ1", "タグ2", "タグ3"]
 }
 
@@ -582,7 +607,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは教育コンテンツの分析専門家です。与えられたテキストから適切なタイトル、要約、タグを生成します。'
+                    content: 'あなたは、学習者の心をつかむ教育マーケティングの専門家です。教材の魅力を最大限に引き出し、学習意欲をかき立てるキャッチーなタイトルと、読者の好奇心をくすぐる要約を作成します。'
                 },
                 {
                     role: 'user',
@@ -1632,18 +1657,30 @@ async function copyShareURL(materialId) {
  * QRコードを生成して表示
  */
 function generateQRCode(materialId) {
-    const url = generateShareURL(materialId);
-    const qrContainer = document.getElementById('qr-code');
-    qrContainer.innerHTML = ''; // 既存のQRコードをクリア
+    try {
+        const url = generateShareURL(materialId);
+        const qrContainer = document.getElementById('qr-code');
+        qrContainer.innerHTML = ''; // 既存のQRコードをクリア
 
-    new QRCode(qrContainer, {
-        text: url,
-        width: 200,
-        height: 200,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-    });
+        // QRCodeライブラリが読み込まれているか確認
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library is not loaded');
+            alert('QRコードライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
+            return;
+        }
+
+        new QRCode(qrContainer, {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } catch (err) {
+        console.error('Failed to generate QR code:', err);
+        alert('QRコードの生成に失敗しました。');
+    }
 }
 
 /**
@@ -1797,7 +1834,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const shareBtn = document.getElementById('share-material-btn');
     if (shareBtn) {
         shareBtn.addEventListener('click', () => {
+            console.log('Share button clicked, currentMaterialId:', appState.currentMaterialId);
+
+            if (!appState.currentMaterialId) {
+                alert('教材が選択されていません。');
+                return;
+            }
+
             const modal = document.getElementById('share-modal');
+            if (!modal) {
+                console.error('Share modal not found');
+                return;
+            }
+
             modal.classList.remove('hidden');
 
             // 結果エリアを非表示にリセット
@@ -1805,6 +1854,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('share-success').classList.add('hidden');
             document.getElementById('qr-code-container').classList.add('hidden');
         });
+    } else {
+        console.warn('Share button not found in DOM');
     }
 
     // モーダルを閉じる
@@ -1829,8 +1880,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyUrlBtn = document.getElementById('copy-url-btn');
     if (copyUrlBtn) {
         copyUrlBtn.addEventListener('click', async () => {
+            console.log('Copy URL button clicked');
             const materialId = appState.currentMaterialId;
-            if (!materialId) return;
+
+            if (!materialId) {
+                console.error('No material selected');
+                alert('教材が選択されていません。');
+                return;
+            }
+
+            // LZ-stringの読み込み確認
+            if (typeof LZString === 'undefined') {
+                console.error('LZString library is not loaded');
+                alert('圧縮ライブラリの読み込みに失敗しました。ページを再読み込みしてください。');
+                return;
+            }
 
             const success = await copyShareURL(materialId);
 
@@ -1843,6 +1907,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 resultArea.classList.remove('hidden');
                 successMsg.classList.remove('hidden');
                 qrContainer.classList.add('hidden');
+
+                console.log('URL copied successfully');
 
                 // 3秒後に成功メッセージを非表示
                 setTimeout(() => {
@@ -1858,8 +1924,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const showQrBtn = document.getElementById('show-qr-btn');
     if (showQrBtn) {
         showQrBtn.addEventListener('click', () => {
+            console.log('Show QR button clicked');
             const materialId = appState.currentMaterialId;
-            if (!materialId) return;
+
+            if (!materialId) {
+                console.error('No material selected');
+                alert('教材が選択されていません。');
+                return;
+            }
 
             const resultArea = document.getElementById('share-result');
             const successMsg = document.getElementById('share-success');
