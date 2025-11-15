@@ -2495,3 +2495,434 @@ body {
         font-size: 28px;
     }
 }
+
+/* ========================================
+   シェア専用LP画面
+   ======================================== */
+.landing-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.landing-hero {
+    background: white;
+    border-radius: 24px;
+    padding: 48px 32px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    margin-bottom: 32px;
+}
+
+.landing-icon {
+    font-size: 64px;
+    margin-bottom: 24px;
+}
+
+.landing-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a202c;
+    margin-bottom: 16px;
+}
+
+.landing-description {
+    font-size: 18px;
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 32px;
+}
+
+.landing-stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 32px;
+}
+
+.landing-stat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stat-icon {
+    font-size: 24px;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #718096;
+}
+
+.btn-landing-start {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 18px 48px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-landing-start:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+}
+
+/* メール登録CTA */
+.landing-cta {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 28px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.cta-box {
+    text-align: center;
+}
+
+.cta-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a202c;
+    margin-bottom: 12px;
+}
+
+.cta-description {
+    font-size: 14px;
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.email-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.email-input {
+    flex: 1;
+    padding: 14px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 15px;
+    transition: border-color 0.2s ease;
+}
+
+.email-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn-email-submit {
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s ease;
+}
+
+.btn-email-submit:hover {
+    background: #5568d3;
+}
+
+.privacy-note {
+    font-size: 12px;
+    color: #718096;
+}
+
+.privacy-note a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.privacy-note a:hover {
+    text-decoration: underline;
+}
+
+/* ========================================
+   認定書画面
+   ======================================== */
+.certificate-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.certificate-card {
+    background: white;
+    border-radius: 24px;
+    padding: 48px 40px;
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border: 8px solid #ffd700;
+}
+
+.certificate-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.certificate-badge {
+    font-size: 80px;
+    margin-bottom: 16px;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.certificate-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1a202c;
+}
+
+.certificate-body {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.certificate-name-section {
+    margin-bottom: 32px;
+}
+
+.certificate-label {
+    font-size: 16px;
+    color: #4a5568;
+    margin: 8px 0;
+}
+
+.certificate-quiz-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #667eea;
+    margin: 16px 0;
+}
+
+.certificate-score {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.score-label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+.score-value {
+    display: block;
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.score-detail {
+    display: block;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.certificate-date {
+    font-size: 14px;
+    color: #718096;
+}
+
+.certificate-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.btn-cert-share,
+.btn-cert-retry,
+.btn-cert-create {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-cert-share {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-cert-share:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.btn-cert-retry {
+    background: #f7fafc;
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+}
+
+.btn-cert-retry:hover {
+    background: #edf2f7;
+    transform: translateY(-2px);
+}
+
+.btn-cert-create {
+    background: #ffd700;
+    color: #1a202c;
+}
+
+.btn-cert-create:hover {
+    background: #f0c800;
+    transform: translateY(-2px);
+}
+
+/* ========================================
+   プライバシーポリシーモーダル
+   ======================================== */
+.privacy-modal-content {
+    max-width: 700px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.privacy-content {
+    padding: 20px 0;
+}
+
+.privacy-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 24px 0 12px 0;
+}
+
+.privacy-content h3:first-child {
+    margin-top: 0;
+}
+
+.privacy-content p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #4a5568;
+    margin: 12px 0;
+}
+
+.privacy-content ul {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.privacy-content li {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #4a5568;
+    margin: 8px 0;
+}
+
+.privacy-date {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #718096;
+    text-align: center;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 480px) {
+    .landing-container {
+        padding: 20px 16px;
+    }
+
+    .landing-hero {
+        padding: 32px 24px;
+    }
+
+    .landing-title {
+        font-size: 26px;
+    }
+
+    .landing-description {
+        font-size: 16px;
+    }
+
+    .landing-stats {
+        gap: 20px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .btn-landing-start {
+        padding: 16px 32px;
+        font-size: 16px;
+    }
+
+    .landing-cta {
+        padding: 24px 20px;
+    }
+
+    .email-form {
+        flex-direction: column;
+    }
+
+    .btn-email-submit {
+        width: 100%;
+    }
+
+    .certificate-card {
+        padding: 32px 24px;
+    }
+
+    .certificate-badge {
+        font-size: 60px;
+    }
+
+    .certificate-title {
+        font-size: 24px;
+    }
+
+    .certificate-quiz-title {
+        font-size: 22px;
+    }
+
+    .score-value {
+        font-size: 40px;
+    }
+}

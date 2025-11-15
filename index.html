@@ -11,6 +11,126 @@
 </head>
 <body>
     <div id="app">
+        <!-- シェア専用LP画面 -->
+        <div id="shared-quiz-landing" class="screen">
+            <div class="landing-container">
+                <div class="landing-hero">
+                    <div class="landing-icon">🎓</div>
+                    <h1 class="landing-title" id="shared-quiz-title">クイズに挑戦</h1>
+                    <p class="landing-description" id="shared-quiz-description">
+                        友達から共有されたクイズです。<br>
+                        あなたの知識を試してみましょう！
+                    </p>
+                    <div class="landing-stats">
+                        <div class="landing-stat">
+                            <span class="stat-icon">📝</span>
+                            <span class="stat-value" id="shared-quiz-count">10</span>
+                            <span class="stat-label">問</span>
+                        </div>
+                        <div class="landing-stat">
+                            <span class="stat-icon">⏱️</span>
+                            <span class="stat-value" id="shared-quiz-time">5</span>
+                            <span class="stat-label">分</span>
+                        </div>
+                    </div>
+                    <button id="start-shared-quiz-btn" class="btn-landing-start">クイズを始める</button>
+                </div>
+
+                <!-- メール登録セクション -->
+                <div class="landing-cta">
+                    <div class="cta-box">
+                        <h3 class="cta-title">自分でもクイズを作りたい方へ</h3>
+                        <p class="cta-description">
+                            PDFやテキストから自動でクイズを生成！<br>
+                            早期アクセス登録で特別価格をご案内します。
+                        </p>
+                        <form id="email-signup-form" class="email-form">
+                            <input type="email" id="email-input" class="email-input" placeholder="メールアドレスを入力" required>
+                            <button type="submit" class="btn-email-submit">登録する</button>
+                        </form>
+                        <p class="privacy-note">
+                            <a href="#" id="privacy-policy-link">プライバシーポリシー</a>を確認してください
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 認定書画面 -->
+        <div id="certificate-screen" class="screen">
+            <div class="certificate-container">
+                <div class="certificate-card">
+                    <div class="certificate-header">
+                        <div class="certificate-badge">🏆</div>
+                        <h2 class="certificate-title">認定証</h2>
+                    </div>
+                    <div class="certificate-body">
+                        <div class="certificate-name-section">
+                            <p class="certificate-label">この証は、</p>
+                            <h3 class="certificate-quiz-title" id="cert-quiz-title">マレーシア文化クイズ</h3>
+                            <p class="certificate-label">を修了したことを認定します</p>
+                        </div>
+                        <div class="certificate-score">
+                            <span class="score-label">正解率</span>
+                            <span class="score-value" id="cert-score">80%</span>
+                            <span class="score-detail" id="cert-detail">(10問中8問正解)</span>
+                        </div>
+                        <div class="certificate-date">
+                            <span id="cert-date">2025年11月15日</span>
+                        </div>
+                    </div>
+                    <div class="certificate-actions">
+                        <button id="share-certificate-btn" class="btn-cert-share">
+                            📤 結果をシェア
+                        </button>
+                        <button id="try-again-btn" class="btn-cert-retry">
+                            🔄 もう一度挑戦
+                        </button>
+                        <button id="create-own-quiz-btn" class="btn-cert-create">
+                            ✨ 自分でクイズを作る
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- プライバシーポリシーモーダル -->
+        <div id="privacy-policy-modal" class="modal hidden">
+            <div class="modal-content privacy-modal-content">
+                <div class="modal-header">
+                    <h2>プライバシーポリシー</h2>
+                    <button id="close-privacy-modal" class="btn-close">✕</button>
+                </div>
+                <div class="privacy-content">
+                    <h3>1. 収集する情報</h3>
+                    <p>当サービスでは、早期アクセス登録時に以下の情報を収集します：</p>
+                    <ul>
+                        <li>メールアドレス</li>
+                        <li>登録日時</li>
+                    </ul>
+
+                    <h3>2. 情報の利用目的</h3>
+                    <p>収集した情報は、以下の目的で利用します：</p>
+                    <ul>
+                        <li>サービスのリリース情報や特別価格のご案内</li>
+                        <li>サービスの改善と開発</li>
+                    </ul>
+
+                    <h3>3. 情報の第三者提供</h3>
+                    <p>お客様の個人情報を、お客様の同意なく第三者に提供することはありません。</p>
+
+                    <h3>4. 情報の管理</h3>
+                    <p>お客様の個人情報は、厳重に管理し、不正アクセス、紛失、破壊、改ざん、漏洩などを防止します。</p>
+
+                    <h3>5. お問い合わせ</h3>
+                    <p>個人情報の取り扱いに関するお問い合わせは、以下のメールアドレスまでご連絡ください：</p>
+                    <p><strong>privacy@quizmaster.com</strong></p>
+
+                    <p class="privacy-date">最終更新日: 2025年11月15日</p>
+                </div>
+            </div>
+        </div>
+
         <!-- ホーム画面 -->
         <div id="home-screen" class="screen active">
             <div class="container">

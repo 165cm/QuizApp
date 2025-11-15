@@ -480,6 +480,8 @@ async function generateQuestionsWithAI(text, fileName) {
 3. 難易度: 基礎(10問)、標準(10問)、応用(10問)
 4. **選択肢の工夫**: 正解以外は「実際によくある間違い」「混同しやすい概念」を選ぶ
    - 単なるダミーではなく、「なぜそう間違えるのか」が説明できる選択肢に
+   - **重要**: 選択肢のテキストに「（正解）」「（よくある誤解）」などの説明を含めないこと
+   - 選択肢は純粋に選択肢のテキストのみ（例：「Tapau」のみ、説明なし）
 5. 各問題に5つ程度の関連タグを付与（実用的で検索しやすいタグ）
 6. JSON形式で出力
 
@@ -494,7 +496,7 @@ async function generateQuestionsWithAI(text, fileName) {
   "questions": [
     {
       "question": "具体例+イメージ+ヒント付きの問題文（3-4文、記憶のフックを含む）",
-      "choices": ["選択肢1（正解）", "選択肢2（よくある誤解）", "選択肢3（混同しやすい概念）", "選択肢4（似た名前の別物）"],
+      "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
       "correctIndex": 0,
       "explanation": "深い洞察を含む解説文（3-5文、200-300文字厳守、10秒で読み切れる量）",
       "difficulty": "basic",
@@ -1122,8 +1124,12 @@ function finishQuiz() {
     saveUserStats();
     saveQuestions();
 
-    // 結果画面表示
-    showResultScreen();
+    // シェアクイズの場合は認定書画面、それ以外は通常の結果画面
+    if (appState.isSharedQuiz) {
+        showCertificate();
+    } else {
+        showResultScreen();
+    }
 }
 
 function showResultScreen() {
@@ -1157,6 +1163,26 @@ function showResultScreen() {
     document.getElementById('result-accuracy').textContent = accuracy + '%';
 
     showScreen('result-screen');
+}
+
+// 認定書画面を表示（シェアクイズ用）
+function showCertificate() {
+    const { correct, total } = appState.currentSession;
+    const accuracy = Math.round((correct / total) * 100);
+    const quizTitle = appState.sharedQuizTitle || 'クイズ';
+
+    // 認定書の内容を設定
+    document.getElementById('cert-quiz-title').textContent = quizTitle;
+    document.getElementById('cert-score').textContent = `${accuracy}%`;
+    document.getElementById('cert-detail').textContent = `(${total}問中${correct}問正解)`;
+
+    // 日付を設定
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+    document.getElementById('cert-date').textContent = dateStr;
+
+    // 認定書画面を表示
+    showScreen('certificate-screen');
 }
 
 // ========================================
@@ -1885,25 +1911,52 @@ function checkForSharedMaterial() {
             throw new Error('サポートされていないバージョンです');
         }
 
-        // データをインポート
+        // データをインポート（内部で保存）
         const newMaterialId = importSharedMaterial(shareData);
 
-        // URLをクリーンアップ（ブラウザ履歴を汚さない）
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // シェア専用LP画面を表示
+        showSharedQuizLanding(newMaterialId, shareData);
 
-        // 教材詳細画面を表示
-        showMaterialDetail(newMaterialId);
-        showScreen('material-detail-screen');
-
-        // 成功メッセージ
-        alert(`「${shareData.material.title}」をインポートしました！\n問題数: ${shareData.questions.length}問`);
+        // URLはクリーンアップしない（戻るボタンで戻れるように）
     } catch (err) {
         console.error('Failed to import shared material:', err);
         console.error('Error details:', err.message, err.stack);
         alert(`共有データの読み込みに失敗しました。\n\nエラー: ${err.message}\n\nURLが正しいか確認してください。`);
 
-        // エラー時もURLをクリーンアップ
+        // エラー時はURLをクリーンアップ
         window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
+/**
+ * シェア専用LP画面を表示
+ */
+function showSharedQuizLanding(materialId, shareData) {
+    const title = shareData.material.title;
+    const questionCount = shareData.questions.length;
+    const estimatedTime = Math.ceil(questionCount / 2); // 1問30秒と仮定
+
+    // タイトルと説明を設定
+    document.getElementById('shared-quiz-title').textContent = title;
+    document.getElementById('shared-quiz-description').innerHTML =
+        `友達から共有されたクイズです。<br>あなたの知識を試してみましょう！`;
+    document.getElementById('shared-quiz-count').textContent = questionCount;
+    document.getElementById('shared-quiz-time').textContent = estimatedTime;
+
+    // LP画面を表示
+    showScreen('shared-quiz-landing');
+
+    // スタートボタンのイベントリスナーを設定（一度だけ）
+    const startBtn = document.getElementById('start-shared-quiz-btn');
+    if (startBtn && !startBtn.dataset.listenerAttached) {
+        startBtn.dataset.listenerAttached = 'true';
+        startBtn.addEventListener('click', () => {
+            // クイズを開始
+            appState.currentMaterialId = materialId;
+            appState.isSharedQuiz = true;  // シェアクイズフラグ
+            appState.sharedQuizTitle = title;  // 認定書用
+            startQuiz();
+        });
     }
 }
 
@@ -2112,6 +2165,115 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ボタンを元に戻す
                 showQrBtn.disabled = false;
                 showQrBtn.querySelector('.share-option-title').textContent = originalText;
+            }
+        });
+    }
+
+    // ========================================
+    // 認定書画面のイベントリスナー
+    // ========================================
+    const shareCertBtn = document.getElementById('share-certificate-btn');
+    if (shareCertBtn) {
+        shareCertBtn.addEventListener('click', () => {
+            const { correct, total } = appState.currentSession;
+            const accuracy = Math.round((correct / total) * 100);
+            const quizTitle = appState.sharedQuizTitle || 'クイズ';
+
+            // 結果をテキストで共有
+            const shareText = `🏆 ${quizTitle}の認定証を獲得しました！\n\n正解率: ${accuracy}% (${total}問中${correct}問正解)\n\nあなたも挑戦してみませんか？`;
+
+            if (navigator.share) {
+                // Web Share API が使える場合
+                navigator.share({
+                    title: '認定証',
+                    text: shareText,
+                    url: window.location.href
+                }).catch(err => console.log('Share failed:', err));
+            } else {
+                // フォールバック: クリップボードにコピー
+                navigator.clipboard.writeText(shareText + '\n' + window.location.href)
+                    .then(() => alert('結果をクリップボードにコピーしました！'))
+                    .catch(err => console.error('Copy failed:', err));
+            }
+        });
+    }
+
+    const tryAgainBtn = document.getElementById('try-again-btn');
+    if (tryAgainBtn) {
+        tryAgainBtn.addEventListener('click', () => {
+            // 同じクイズをもう一度
+            if (appState.currentMaterialId) {
+                startQuiz();
+            }
+        });
+    }
+
+    const createOwnQuizBtn = document.getElementById('create-own-quiz-btn');
+    if (createOwnQuizBtn) {
+        createOwnQuizBtn.addEventListener('click', () => {
+            // ホーム画面に戻る（APIキー設定などを促す）
+            appState.isSharedQuiz = false;
+            showScreen('home-screen');
+            // 教材生成タブに切り替え
+            document.querySelector('.home-tab-btn[data-tab="generate"]').click();
+        });
+    }
+
+    // ========================================
+    // メール登録フォーム
+    // ========================================
+    const emailForm = document.getElementById('email-signup-form');
+    if (emailForm) {
+        emailForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById('email-input');
+            const email = emailInput.value.trim();
+
+            if (email) {
+                // メールアドレスをlocalStorageに保存（本番ではバックエンドに送信）
+                const signups = JSON.parse(localStorage.getItem('email_signups') || '[]');
+                signups.push({
+                    email: email,
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('email_signups', JSON.stringify(signups));
+
+                // 成功メッセージ
+                alert('登録ありがとうございます！\nリリース時にご連絡いたします。');
+                emailInput.value = '';
+
+                console.log('Email registered:', email);
+                // 本番環境では、ここでバックエンドAPIを呼び出す
+                // fetch('/api/signup', { method: 'POST', body: JSON.stringify({ email }) })
+            }
+        });
+    }
+
+    // ========================================
+    // プライバシーポリシーモーダル
+    // ========================================
+    const privacyLink = document.getElementById('privacy-policy-link');
+    const privacyModal = document.getElementById('privacy-policy-modal');
+    const closePrivacyBtn = document.getElementById('close-privacy-modal');
+
+    if (privacyLink) {
+        privacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            privacyModal.classList.remove('hidden');
+        });
+    }
+
+    if (closePrivacyBtn) {
+        closePrivacyBtn.addEventListener('click', () => {
+            privacyModal.classList.add('hidden');
+        });
+    }
+
+    // モーダル外クリックで閉じる
+    if (privacyModal) {
+        privacyModal.addEventListener('click', (e) => {
+            if (e.target === privacyModal) {
+                privacyModal.classList.add('hidden');
             }
         });
     }
