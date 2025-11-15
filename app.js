@@ -59,6 +59,74 @@ function updateStats() {
         : 0;
     document.getElementById('accuracy-rate').textContent = accuracy + '%';
     document.getElementById('review-count').textContent = reviewCount;
+
+    // タグ統計を更新
+    updateTagCloud();
+}
+
+// タグクラウドを更新
+function updateTagCloud() {
+    const container = document.getElementById('tag-cloud');
+    container.innerHTML = '';
+
+    // 全ての問題からタグを収集し、正解回数をカウント
+    const tagStats = {};
+
+    appState.questions.forEach(q => {
+        if (q.tags && Array.isArray(q.tags)) {
+            q.tags.forEach(tag => {
+                if (!tagStats[tag]) {
+                    tagStats[tag] = {
+                        total: 0,
+                        correct: 0
+                    };
+                }
+
+                // 学習済みの問題のみカウント
+                if (q.lastReviewed) {
+                    tagStats[tag].total++;
+
+                    // 正解判定（reviewCountが1以上なら少なくとも1回は正解している）
+                    // より正確には、最後の回答が正解かどうかで判定
+                    // ここでは簡易的にreviewCountが1以上なら正解としてカウント
+                    if (q.reviewCount > 0) {
+                        tagStats[tag].correct++;
+                    }
+                }
+            });
+        }
+    });
+
+    // タグがない場合
+    const tags = Object.keys(tagStats);
+    if (tags.length === 0) {
+        container.innerHTML = '<div class="tag-cloud-empty">まだ学習したタグがありません。<br>問題を解いてジャンルを広げましょう！</div>';
+        return;
+    }
+
+    // タグを正解回数でソート
+    const sortedTags = tags.sort((a, b) => tagStats[b].correct - tagStats[a].correct);
+
+    // 最大正解回数を取得（フォントサイズの正規化用）
+    const maxCorrect = Math.max(...sortedTags.map(tag => tagStats[tag].correct), 1);
+
+    // タグクラウドを生成
+    sortedTags.forEach(tag => {
+        const stat = tagStats[tag];
+        const correctCount = stat.correct;
+        const totalCount = stat.total;
+
+        // 正解回数に応じてフォントサイズを調整（12px〜28px）
+        const fontSize = 12 + Math.floor((correctCount / maxCorrect) * 16);
+
+        const tagItem = document.createElement('div');
+        tagItem.className = 'tag-cloud-item';
+        tagItem.style.fontSize = `${fontSize}px`;
+        tagItem.title = `${tag}: ${correctCount}/${totalCount}問正解`;
+        tagItem.textContent = `${tag} (${correctCount})`;
+
+        container.appendChild(tagItem);
+    });
 }
 
 function updateStreak() {
@@ -368,8 +436,9 @@ async function generateQuestionsWithAI(text, fileName) {
 2. 各見出しセクションから問題を生成し、各問題に対応する見出しを記録してください
 3. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
 4. 選択肢には「よくある誤解」を含める(実は間違えた効果)
-5. JSON形式で出力
-6. 日本語で出力
+5. 各問題には5つ程度の関連タグを付けてください（例: "歴史", "江戸時代", "政治", "社会構造", "経済"）
+6. JSON形式で出力
+7. 日本語で出力
 
 出力形式:
 {
@@ -390,7 +459,8 @@ async function generateQuestionsWithAI(text, fileName) {
       "correctIndex": 0,
       "explanation": "解説文",
       "difficulty": "basic",
-      "sourceSection": "見出し1"
+      "sourceSection": "見出し1",
+      "tags": ["タグ1", "タグ2", "タグ3", "タグ4", "タグ5"]
     }
   ]
 }
@@ -398,7 +468,8 @@ async function generateQuestionsWithAI(text, fileName) {
 注意:
 - sourceSectionは必ず上記sectionsの中のheadingのいずれかと一致すること
 - 見出しが明確でない場合は、テキストの内容から適切なトピック名を作成してください
-- すべての問題に必ずsourceSectionを含めてください
+- すべての問題に必ずsourceSectionとtagsを含めてください
+- タグは問題の内容を表す具体的で有用なキーワードにしてください
 
 テキスト:
 ${truncatedText}`;
@@ -568,8 +639,48 @@ function startQuiz() {
         return;
     }
 
+    // 進捗グリッドを初期化
+    initProgressGrid();
+
     showScreen('quiz-screen');
     displayQuestion();
+}
+
+// 進捗グリッドを初期化
+function initProgressGrid() {
+    const grid = document.getElementById('quiz-progress-grid');
+    grid.innerHTML = '';
+
+    appState.currentQuiz.forEach((_, index) => {
+        const cell = document.createElement('div');
+        cell.className = 'progress-cell';
+        cell.textContent = index + 1;
+        cell.id = `progress-cell-${index}`;
+        grid.appendChild(cell);
+    });
+}
+
+// 進捗グリッドを更新
+function updateProgressGrid() {
+    // 全てのセルから current クラスを削除
+    document.querySelectorAll('.progress-cell').forEach(cell => {
+        cell.classList.remove('current');
+    });
+
+    // 現在の問題セルに current クラスを追加
+    const currentCell = document.getElementById(`progress-cell-${appState.currentQuestionIndex}`);
+    if (currentCell) {
+        currentCell.classList.add('current');
+    }
+}
+
+// 進捗グリッドに正誤結果を反映
+function markProgressCell(index, isCorrect) {
+    const cell = document.getElementById(`progress-cell-${index}`);
+    if (cell) {
+        cell.classList.remove('current');
+        cell.classList.add(isCorrect ? 'correct' : 'incorrect');
+    }
 }
 
 function selectQuestions() {
@@ -658,8 +769,9 @@ function displayQuestion() {
     // プログレス更新
     document.getElementById('current-question').textContent = appState.currentQuestionIndex + 1;
     document.getElementById('total-quiz-questions').textContent = appState.currentQuiz.length;
-    const progress = ((appState.currentQuestionIndex + 1) / appState.currentQuiz.length) * 100;
-    document.getElementById('quiz-progress').style.width = progress + '%';
+
+    // 進捗グリッド更新
+    updateProgressGrid();
 
     // 難易度バッジ
     const badge = document.getElementById('difficulty-badge');
@@ -673,6 +785,18 @@ function displayQuestion() {
 
     // 質問表示
     document.getElementById('question-text').textContent = question.question;
+
+    // タグ表示
+    const tagsContainer = document.getElementById('question-tags');
+    tagsContainer.innerHTML = '';
+    if (question.tags && question.tags.length > 0) {
+        question.tags.forEach(tag => {
+            const tagEl = document.createElement('span');
+            tagEl.className = 'tag';
+            tagEl.textContent = tag;
+            tagsContainer.appendChild(tagEl);
+        });
+    }
 
     // 選択肢表示
     const container = document.getElementById('choices-container');
@@ -691,6 +815,9 @@ function displayQuestion() {
     document.getElementById('feedback').classList.add('hidden');
 }
 
+// 自動進行用のタイマーID
+let autoProgressTimer = null;
+
 function selectChoice(index) {
     // 既に回答済みなら無視
     if (appState.selectedAnswer !== null) return;
@@ -706,12 +833,19 @@ function selectChoice(index) {
         }
     });
 
-    document.getElementById('check-answer-btn').disabled = false;
+    // 即座に正誤判定を実行
+    checkAnswer();
 }
 
 document.getElementById('check-answer-btn').addEventListener('click', checkAnswer);
 
 function checkAnswer() {
+    // 既にタイマーが動いている場合はクリア
+    if (autoProgressTimer) {
+        clearTimeout(autoProgressTimer);
+        autoProgressTimer = null;
+    }
+
     const question = appState.currentQuiz[appState.currentQuestionIndex];
     const isCorrect = appState.selectedAnswer === question.correctIndex;
 
@@ -720,6 +854,9 @@ function checkAnswer() {
     if (isCorrect) {
         appState.currentSession.correct++;
     }
+
+    // 進捗グリッドに正誤結果を反映
+    markProgressCell(appState.currentQuestionIndex, isCorrect);
 
     // UI更新
     const choices = document.querySelectorAll('.choice-btn');
@@ -756,16 +893,33 @@ function checkAnswer() {
 
     // ボタン非表示
     document.getElementById('check-answer-btn').style.display = 'none';
+
+    // 解説の文字数に応じた自動進行時間を計算（100文字あたり3秒、最小3秒、最大15秒）
+    const explanationLength = question.explanation.length;
+    const baseTime = 3000; // 基本3秒
+    const additionalTime = Math.floor(explanationLength / 100) * 3000; // 100文字あたり3秒
+    const autoProgressDelay = Math.min(Math.max(baseTime + additionalTime, 3000), 15000);
+
+    // 自動で次へ進む
+    autoProgressTimer = setTimeout(() => {
+        nextQuestion();
+    }, autoProgressDelay);
 }
 
 document.getElementById('next-question-btn').addEventListener('click', nextQuestion);
 
 function nextQuestion() {
+    // 自動進行タイマーをクリア
+    if (autoProgressTimer) {
+        clearTimeout(autoProgressTimer);
+        autoProgressTimer = null;
+    }
+
     document.getElementById('check-answer-btn').style.display = 'block';
 
     if (appState.currentQuestionIndex < appState.currentQuiz.length - 1) {
-        // 10秒休憩(3問ごと)
-        if ((appState.currentQuestionIndex + 1) % 3 === 0) {
+        // 10秒休憩(10問ごと)
+        if ((appState.currentQuestionIndex + 1) % 10 === 0) {
             showBreak(() => {
                 appState.currentQuestionIndex++;
                 displayQuestion();
@@ -974,6 +1128,7 @@ document.getElementById('back-to-library-btn')?.addEventListener('click', () => 
 // 教材ライブラリ管理
 // ========================================
 let filteredMaterials = [];
+let currentViewMode = 'list'; // デフォルトはリストビュー
 
 function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -991,6 +1146,9 @@ function showMaterialsLibrary() {
     // タグフィルターの選択肢を更新
     updateTagFilter();
 
+    // ビューモードを適用
+    applyViewMode();
+
     // 教材カードを表示
     filteredMaterials.forEach(material => {
         const materialCard = createMaterialCard(material);
@@ -998,6 +1156,12 @@ function showMaterialsLibrary() {
     });
 
     showScreen('references-screen');
+}
+
+// ビューモードを適用
+function applyViewMode() {
+    const container = document.getElementById('references-list');
+    container.className = currentViewMode === 'list' ? 'materials-grid list-view' : 'materials-grid';
 }
 
 function createMaterialCard(material) {
@@ -1118,6 +1282,21 @@ document.getElementById('material-search')?.addEventListener('input', showMateri
 document.getElementById('tag-filter')?.addEventListener('change', showMaterialsLibrary);
 document.getElementById('sort-filter')?.addEventListener('change', showMaterialsLibrary);
 
+// ビュー切り替えのイベントリスナー
+document.getElementById('list-view-btn')?.addEventListener('click', () => {
+    currentViewMode = 'list';
+    document.getElementById('list-view-btn').classList.add('active');
+    document.getElementById('card-view-btn').classList.remove('active');
+    showMaterialsLibrary();
+});
+
+document.getElementById('card-view-btn')?.addEventListener('click', () => {
+    currentViewMode = 'card';
+    document.getElementById('card-view-btn').classList.add('active');
+    document.getElementById('list-view-btn').classList.remove('active');
+    showMaterialsLibrary();
+});
+
 function deleteMaterial(materialId) {
     const material = appState.materials.find(m => m.id === materialId);
 
@@ -1226,6 +1405,10 @@ function updateQuestionsTab(material, questions) {
             ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
             : '未学習';
 
+        // 参照元セクションのアンカーリンクを生成
+        const anchorId = 'heading-' + encodeURIComponent(sectionTag.replace(/\s+/g, '-'));
+        const sectionLink = `<a href="#${anchorId}" class="section-link" onclick="document.querySelector('.tab-btn[data-tab=\\'content\\']').click(); setTimeout(() => document.getElementById('${anchorId}')?.scrollIntoView({behavior: 'smooth', block: 'start'}), 100); return false;">🏷️ ${sectionTag}</a>`;
+
         questionCard.innerHTML = `
             <div class="question-item-header">
                 <span class="question-number">Q${index + 1}</span>
@@ -1233,7 +1416,7 @@ function updateQuestionsTab(material, questions) {
             </div>
             <div class="question-item-text">${q.question}</div>
             <div class="question-item-meta">
-                <span class="section-tag">🏷️ ${sectionTag}</span>
+                <span class="section-tag">${sectionLink}</span>
                 <span class="last-reviewed">最終学習: ${lastReviewed}</span>
             </div>
         `;
@@ -1248,16 +1431,22 @@ function updateContentTab(material) {
     // マークダウン形式の本文を表示（シンプルな表示）
     const content = material.content || 'この教材には本文が保存されていません。';
 
-    // 改行を<br>に変換し、見出しを強調
+    // 改行を<br>に変換し、見出しを強調、見出しにアンカーIDを付ける
     const formattedContent = content
         .split('\n')
         .map(line => {
             if (line.startsWith('# ')) {
-                return `<h1>${line.substring(2)}</h1>`;
+                const heading = line.substring(2);
+                const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
+                return `<h1 id="${anchorId}">${heading}</h1>`;
             } else if (line.startsWith('## ')) {
-                return `<h2>${line.substring(3)}</h2>`;
+                const heading = line.substring(3);
+                const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
+                return `<h2 id="${anchorId}">${heading}</h2>`;
             } else if (line.startsWith('### ')) {
-                return `<h3>${line.substring(4)}</h3>`;
+                const heading = line.substring(4);
+                const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
+                return `<h3 id="${anchorId}">${heading}</h3>`;
             } else if (line.trim() === '') {
                 return '<br>';
             } else {

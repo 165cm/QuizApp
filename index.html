@@ -64,6 +64,14 @@
                     </div>
                 </div>
 
+                <!-- タグ統計 -->
+                <div class="tag-stats-section">
+                    <h2>📊 学習ジャンル</h2>
+                    <div id="tag-cloud" class="tag-cloud">
+                        <!-- タグクラウドがここに表示されます -->
+                    </div>
+                </div>
+
                 <!-- 教材追加セクション -->
                 <div class="upload-section">
                     <h2>新しい教材を追加</h2>
@@ -126,6 +134,10 @@
                         <option value="title">タイトル順</option>
                         <option value="questions">問題数順</option>
                     </select>
+                    <div class="view-toggle">
+                        <button id="list-view-btn" class="view-btn active" title="リスト表示">☰</button>
+                        <button id="card-view-btn" class="view-btn" title="カード表示">▦</button>
+                    </div>
                 </div>
 
                 <div id="references-list" class="materials-grid">
@@ -223,14 +235,17 @@
                     </div>
                 </div>
 
-                <div class="progress-bar">
-                    <div id="quiz-progress" class="progress-fill"></div>
+                <div id="quiz-progress-grid" class="progress-grid">
+                    <!-- グリッド形式の進捗表示がここに動的に生成されます -->
                 </div>
 
                 <div class="difficulty-badge" id="difficulty-badge">基礎</div>
 
                 <div class="question-card">
                     <h2 id="question-text" class="question-text"></h2>
+                    <div id="question-tags" class="question-tags">
+                        <!-- 問題のタグがここに表示されます -->
+                    </div>
                     <div id="choices-container" class="choices-container"></div>
                 </div>
 
