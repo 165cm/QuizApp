@@ -191,6 +191,80 @@ QuizApp/
 - [ ] 複数人での学習データ共有
 - [ ] 音声読み上げ機能
 
+## 🚀 デプロイとプレビュー
+
+コミット時に自動的にプレビューURLが発行され、Web上で動作確認ができます！
+
+### 利用可能なデプロイ方法
+
+#### 1. **GitHub Pages（推奨・無料）**
+最もシンプルで無料。コミットすると自動でデプロイされます。
+
+**セットアップ:**
+1. GitHubリポジトリの Settings → Pages
+2. Source を「GitHub Actions」に設定
+3. コミット&プッシュすると自動でデプロイ
+4. プレビューURLがコミットコメントに自動投稿されます
+
+**URL形式:** `https://<username>.github.io/<repository>/`
+
+#### 2. **Vercel（プレビュー機能が強力）** ※現在無効化中
+ブランチごとに異なるプレビューURLを発行。
+
+**セットアップ:**
+1. [Vercel](https://vercel.com)でアカウント作成
+2. GitHubリポジトリをインポート
+3. 以下のシークレットをGitHub Actionsに追加:
+   - `VERCEL_TOKEN`: Vercel Settings → Tokens から取得
+   - `VERCEL_ORG_ID`: Vercel Project Settings → General から取得
+   - `VERCEL_PROJECT_ID`: 同上
+4. ワークフローを有効化:
+   ```bash
+   mv .github/workflows/preview-deploy.yml.disabled .github/workflows/preview-deploy.yml
+   ```
+5. コミット&プッシュで自動デプロイ
+
+**特徴:**
+- コミットごとに一意のプレビューURL
+- 本番環境と開発環境を分離
+- 高速なグローバルCDN
+
+#### 3. **Netlify（代替案）**
+Vercelの代替として利用可能。
+
+**セットアップ:**
+1. [Netlify](https://netlify.com)でアカウント作成
+2. GitHubリポジトリを接続
+3. 設定は `netlify.toml` で自動的に適用
+
+### 自動デプロイの仕組み
+
+プッシュすると、GitHub Actionsが自動的に:
+1. コードをチェックアウト
+2. 選択したプラットフォームにデプロイ
+3. プレビューURLをコミットコメントに投稿
+
+**コメント例:**
+```
+🚀 プレビューデプロイ完了！
+
+✅ ブランチ: claude/add-live-commit-preview
+📦 コミット: a1b2c3d
+🔗 プレビューURL: https://your-app.vercel.app
+
+このURLでアプリの動作確認ができます！
+```
+
+### トラブルシューティング
+
+**GitHub Pagesが動作しない場合:**
+- リポジトリがPublicであることを確認
+- Settings → Pages で GitHub Actions が選択されているか確認
+
+**Vercelデプロイが失敗する場合:**
+- シークレットが正しく設定されているか確認
+- Vercel CLIでローカルテスト: `npx vercel`
+
 ## 🔐 プライバシーとセキュリティ
 
 - APIキーはブラウザのLocalStorageに保存されます(暗号化なし)
