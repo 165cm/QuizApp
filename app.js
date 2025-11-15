@@ -1641,49 +1641,44 @@ function generateShareData(materialId) {
 }
 
 /**
- * GitHub Gistに教材データをアップロードして共有URLを生成
+ * dpaste.orgに教材データをアップロードして共有URLを生成
  */
 async function generateShareURL(materialId) {
     const shareData = generateShareData(materialId);
-    const jsonStr = JSON.stringify(shareData, null, 2);
+    const jsonStr = JSON.stringify(shareData);
 
     try {
-        // GitHub Gist APIで匿名Gistを作成
-        const response = await fetch('https://api.github.com/gists', {
+        // dpaste.org APIで匿名ペーストを作成（完全無料・認証不要）
+        const formData = new FormData();
+        formData.append('content', jsonStr);
+        formData.append('syntax', 'json');
+        formData.append('expiry_days', '365'); // 1年間保存
+
+        const response = await fetch('https://dpaste.org/api/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/vnd.github.v3+json'
-            },
-            body: JSON.stringify({
-                description: `QuizMaster教材: ${shareData.material.title}`,
-                public: true,
-                files: {
-                    'quiz.json': {
-                        content: jsonStr
-                    }
-                }
-            })
+            body: formData
         });
 
         if (!response.ok) {
-            throw new Error(`GitHub API error: ${response.status}`);
+            throw new Error(`dpaste API error: ${response.status}`);
         }
 
-        const gist = await response.json();
-        const baseURL = window.location.href.split('?')[0];
-        const shareURL = `${baseURL}?gist=${gist.id}`;
+        const pasteUrl = await response.text();
+        const pasteId = pasteUrl.trim().split('/').filter(Boolean).pop();
 
-        console.log('Gist created:', gist.html_url);
+        const baseURL = window.location.href.split('?')[0];
+        const shareURL = `${baseURL}?paste=${pasteId}`;
+
+        console.log('Paste created:', pasteUrl);
         return shareURL;
     } catch (err) {
-        console.error('Failed to create Gist:', err);
+        console.error('Failed to create paste:', err);
         throw err;
     }
 }
 
 /**
- * URLをクリップボードにコピー（GitHub Gist使用）
+ * URLをクリップボードにコピー（dpaste.org使用）
  */
 async function copyShareURL(materialId) {
     try {
@@ -1697,7 +1692,7 @@ async function copyShareURL(materialId) {
 }
 
 /**
- * QRコードを生成して表示（GitHub Gist使用）
+ * QRコードを生成して表示（dpaste.org使用）
  */
 async function generateQRCode(materialId) {
     try {
@@ -1780,24 +1775,23 @@ function importSharedMaterial(shareData) {
  */
 async function checkForSharedMaterial() {
     const urlParams = new URLSearchParams(window.location.search);
-    const gistId = urlParams.get('gist');
+    const pasteId = urlParams.get('paste');
     const legacyShare = urlParams.get('share');
 
     try {
         let shareData;
 
-        if (gistId) {
-            // GitHub Gistから取得
-            console.log('Loading from Gist:', gistId);
-            const response = await fetch(`https://api.github.com/gists/${gistId}`);
+        if (pasteId) {
+            // dpaste.orgから取得
+            console.log('Loading from dpaste:', pasteId);
+            const response = await fetch(`https://dpaste.org/${pasteId}.txt`);
 
             if (!response.ok) {
-                throw new Error(`GitHub API error: ${response.status}`);
+                throw new Error(`dpaste API error: ${response.status}`);
             }
 
-            const gist = await response.json();
-            const fileContent = gist.files['quiz.json'].content;
-            shareData = JSON.parse(fileContent);
+            const jsonStr = await response.text();
+            shareData = JSON.parse(jsonStr);
         } else if (legacyShare) {
             // レガシーURL形式（LZ-string圧縮）
             console.log('Loading from legacy share URL');
