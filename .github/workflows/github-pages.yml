@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/scientific-quiz-app-011CV5qha7xfBYxeZnvGCZXL
 
 permissions:
   contents: read
