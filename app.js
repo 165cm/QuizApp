@@ -141,7 +141,7 @@ async function generateQuiz(file) {
 
         // クイズ生成
         updateGeneratingStatus('AIがクイズを生成中...', 50);
-        const questions = await generateQuestionsWithAI(text);
+        const questions = await generateQuestionsWithAI(text, file.name);
 
         // 保存
         updateGeneratingStatus('保存しています...', 90);
@@ -184,7 +184,7 @@ async function extractTextFromPDF(file) {
     return fullText;
 }
 
-async function generateQuestionsWithAI(text) {
+async function generateQuestionsWithAI(text, fileName) {
     const maxChars = 12000; // GPT-4o-miniのトークン制限を考慮
     const truncatedText = text.slice(0, maxChars);
 
@@ -252,7 +252,11 @@ ${truncatedText}`;
         throw new Error('生成されたクイズの形式が不正です');
     }
 
-    // 間隔反復用のデータを追加
+    // 参照元情報を作成
+    const referenceId = 'ref_' + Date.now();
+    const uploadDate = new Date().toISOString();
+
+    // 間隔反復用のデータと参照元情報を追加
     return questions.map(q => ({
         ...q,
         id: Date.now() + Math.random(),
@@ -260,7 +264,12 @@ ${truncatedText}`;
         reviewCount: 0,
         easeFactor: 2.5,
         interval: 0,
-        nextReview: null
+        nextReview: null,
+        reference: {
+            id: referenceId,
+            fileName: fileName,
+            uploadDate: uploadDate
+        }
     }));
 }
 
@@ -652,6 +661,132 @@ document.getElementById('home-btn').addEventListener('click', () => {
     showScreen('home-screen');
     initHomeScreen();
 });
+
+document.getElementById('manage-references-btn').addEventListener('click', () => {
+    showReferencesScreen();
+});
+
+document.getElementById('back-to-home-btn').addEventListener('click', () => {
+    showScreen('home-screen');
+    initHomeScreen();
+});
+
+// ========================================
+// 参照元管理
+// ========================================
+function getReferencesGrouped() {
+    const referencesMap = new Map();
+
+    appState.questions.forEach(q => {
+        // 古い問題（参照元情報がない場合）は「未分類」として扱う
+        if (!q.reference) {
+            if (!referencesMap.has('uncategorized')) {
+                referencesMap.set('uncategorized', {
+                    id: 'uncategorized',
+                    fileName: '未分類',
+                    uploadDate: null,
+                    questions: []
+                });
+            }
+            referencesMap.get('uncategorized').questions.push(q);
+        } else {
+            const refId = q.reference.id;
+            if (!referencesMap.has(refId)) {
+                referencesMap.set(refId, {
+                    id: refId,
+                    fileName: q.reference.fileName,
+                    uploadDate: q.reference.uploadDate,
+                    questions: []
+                });
+            }
+            referencesMap.get(refId).questions.push(q);
+        }
+    });
+
+    // 配列に変換してアップロード日時で降順ソート
+    return Array.from(referencesMap.values()).sort((a, b) => {
+        if (!a.uploadDate) return 1;
+        if (!b.uploadDate) return -1;
+        return new Date(b.uploadDate) - new Date(a.uploadDate);
+    });
+}
+
+function showReferencesScreen() {
+    const references = getReferencesGrouped();
+    const container = document.getElementById('references-list');
+    container.innerHTML = '';
+
+    if (references.length === 0) {
+        container.innerHTML = '<div class="empty-message">まだ問題が登録されていません</div>';
+        showScreen('references-screen');
+        return;
+    }
+
+    references.forEach(ref => {
+        const refCard = document.createElement('div');
+        refCard.className = 'reference-card';
+
+        const dateStr = ref.uploadDate
+            ? new Date(ref.uploadDate).toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : '不明';
+
+        refCard.innerHTML = `
+            <div class="reference-header">
+                <div class="reference-info">
+                    <h3 class="reference-filename">📄 ${ref.fileName}</h3>
+                    <p class="reference-date">アップロード日時: ${dateStr}</p>
+                </div>
+                <div class="reference-stats">
+                    <div class="reference-count">${ref.questions.length}問</div>
+                </div>
+            </div>
+            <div class="reference-actions">
+                <button class="btn btn-danger btn-sm" onclick="deleteReference('${ref.id}')">
+                    🗑️ 削除
+                </button>
+            </div>
+        `;
+
+        container.appendChild(refCard);
+    });
+
+    showScreen('references-screen');
+}
+
+function deleteReference(referenceId) {
+    const references = getReferencesGrouped();
+    const reference = references.find(ref => ref.id === referenceId);
+
+    if (!reference) return;
+
+    const confirmMessage = `「${reference.fileName}」の問題${reference.questions.length}問を削除しますか？\n\nこの操作は取り消せません。`;
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // 該当する参照元の問題を削除
+    if (referenceId === 'uncategorized') {
+        appState.questions = appState.questions.filter(q => q.reference);
+    } else {
+        appState.questions = appState.questions.filter(q =>
+            !q.reference || q.reference.id !== referenceId
+        );
+    }
+
+    saveQuestions();
+
+    // 画面を更新
+    showReferencesScreen();
+
+    alert(`${reference.questions.length}問の問題を削除しました`);
+}
 
 // ========================================
 // ユーティリティ関数
