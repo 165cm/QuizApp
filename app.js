@@ -111,11 +111,16 @@ function updateTagCloud() {
     // 最大正解回数を取得（フォントサイズの正規化用）
     const maxCorrect = Math.max(...sortedTags.map(tag => tagStats[tag].correct), 1);
 
-    // タグクラウドを生成
+    // タグクラウドを生成（学習回数0のタグは非表示）
     sortedTags.forEach(tag => {
         const stat = tagStats[tag];
         const correctCount = stat.correct;
         const totalCount = stat.total;
+
+        // 学習回数が0のタグはスキップ
+        if (totalCount === 0) {
+            return;
+        }
 
         // 正解回数に応じてフォントサイズを調整（12px〜28px）
         const fontSize = 12 + Math.floor((correctCount / maxCorrect) * 16);
@@ -1752,10 +1757,14 @@ function updateContentTab(material) {
     content = content.replace(/https?:\/\/\S+\.(png|jpg|jpeg|gif|svg)/gi, ''); // 画像URL
 
     // 改行を<br>に変換し、見出しを強調、見出しにアンカーIDを付ける
-    // Callout風の装飾を追加
     const formattedContent = content
         .split('\n')
         .map(line => {
+            // 太字処理を全ての行で実行
+            if (line.includes('**')) {
+                line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            }
+
             if (line.startsWith('# ')) {
                 const heading = line.substring(2);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
@@ -1768,24 +1777,17 @@ function updateContentTab(material) {
                 const heading = line.substring(4);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
                 return `<h3 id="${anchorId}" class="content-heading-h3">${heading}</h3>`;
-            } else if (line.startsWith('> ')) {
-                // Callout風のブロック引用
-                const text = line.substring(2);
-                return `<div class="content-callout">${text}</div>`;
             } else if (line.startsWith('- ') || line.startsWith('* ')) {
                 // リスト項目
                 const text = line.substring(2);
                 return `<div class="content-list-item">• ${text}</div>`;
             } else if (line.trim() === '') {
-                return '<br>';
-            } else if (line.includes('**') && line.match(/\*\*(.*?)\*\*/)) {
-                // 太字をハイライト
-                const highlighted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="content-highlight">$1</strong>');
-                return `<p>${highlighted}</p>`;
+                return '';
             } else {
                 return `<p>${line}</p>`;
             }
         })
+        .filter(line => line !== '')
         .join('');
 
     container.innerHTML = formattedContent;
