@@ -744,10 +744,34 @@ function markProgressCell(index, isCorrect) {
 }
 
 function selectQuestions() {
+    // アーカイブされていない問題のみを対象
+    const activeQuestions = appState.questions.filter(q => !q.archived);
+
+    // 復習待ち優先モード
+    if (appState.selectedMaterial === 'review-priority') {
+        const reviewDue = activeQuestions.filter(q => isReviewDue(q));
+        const count = Math.min(appState.questionCount, Math.max(reviewDue.length, activeQuestions.length));
+
+        // 復習待ち問題を優先的に選択
+        if (reviewDue.length >= count) {
+            // 復習待ちだけで十分
+            return shuffleArray(reviewDue).slice(0, count);
+        } else {
+            // 復習待ち + 新規問題で補う
+            const remaining = count - reviewDue.length;
+            const otherQuestions = activeQuestions.filter(q => !isReviewDue(q));
+            const selected = [
+                ...reviewDue,
+                ...shuffleArray(otherQuestions).slice(0, remaining)
+            ];
+            return shuffleArray(selected);
+        }
+    }
+
     // 教材フィルター
     let availableQuestions = appState.selectedMaterial === 'all'
-        ? appState.questions
-        : appState.questions.filter(q => q.materialId === appState.selectedMaterial);
+        ? activeQuestions
+        : activeQuestions.filter(q => q.materialId === appState.selectedMaterial);
 
     if (availableQuestions.length === 0) {
         return [];
@@ -1324,10 +1348,97 @@ document.getElementById('back-to-library-btn')?.addEventListener('click', () => 
     showMaterialsLibrary();
 });
 
+document.getElementById('back-to-home-from-review-btn')?.addEventListener('click', () => {
+    showScreen('home-screen');
+    initHomeScreen();
+});
+
+// 復習待ちカードをクリックして一覧表示
+document.getElementById('review-count-card')?.addEventListener('click', () => {
+    showReviewList();
+});
+
+// ========================================
+// 復習待ち問題一覧
+// ========================================
+function showReviewList() {
+    const reviewQuestions = appState.questions.filter(q => isReviewDue(q));
+    const container = document.getElementById('review-questions-list');
+    container.innerHTML = '';
+
+    document.getElementById('review-list-count').textContent = reviewQuestions.length;
+
+    if (reviewQuestions.length === 0) {
+        container.innerHTML = '<div class="empty-message">復習待ちの問題はありません</div>';
+        showScreen('review-list-screen');
+        return;
+    }
+
+    // 教材別にグルーピング
+    const groupedByMaterial = {};
+    reviewQuestions.forEach(q => {
+        if (!groupedByMaterial[q.materialId]) {
+            groupedByMaterial[q.materialId] = [];
+        }
+        groupedByMaterial[q.materialId].push(q);
+    });
+
+    // 教材ごとに表示
+    Object.keys(groupedByMaterial).forEach(materialId => {
+        const material = appState.materials.find(m => m.id === materialId);
+        const questions = groupedByMaterial[materialId];
+
+        // 教材セクション
+        const section = document.createElement('div');
+        section.className = 'review-material-section';
+
+        const header = document.createElement('div');
+        header.className = 'review-material-header';
+        header.innerHTML = `
+            <h3>${material ? material.title : '不明な教材'}</h3>
+            <span class="review-count-badge">${questions.length}問</span>
+        `;
+        section.appendChild(header);
+
+        // 問題リスト
+        const list = document.createElement('div');
+        list.className = 'review-question-items';
+
+        questions.forEach(q => {
+            const item = document.createElement('div');
+            item.className = 'review-question-item';
+
+            const nextReviewDate = new Date(q.nextReview);
+            const daysOverdue = Math.floor((new Date() - nextReviewDate) / (1000 * 60 * 60 * 24));
+
+            item.innerHTML = `
+                <div class="review-question-text">${q.question}</div>
+                <div class="review-question-meta">
+                    <span class="review-difficulty ${q.difficulty}">${
+                        q.difficulty === 'basic' ? '基礎' :
+                        q.difficulty === 'standard' ? '標準' : '応用'
+                    }</span>
+                    <span class="review-overdue">${
+                        daysOverdue > 0 ? `${daysOverdue}日経過` : '本日'
+                    }</span>
+                </div>
+            `;
+
+            list.appendChild(item);
+        });
+
+        section.appendChild(list);
+        container.appendChild(section);
+    });
+
+    showScreen('review-list-screen');
+}
+
 // ========================================
 // 教材ライブラリ管理
 // ========================================
 let filteredMaterials = [];
+let currentView = 'card'; // 'card' or 'list'
 
 function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -1342,11 +1453,20 @@ function showMaterialsLibrary() {
     // フィルターとソートを適用
     filteredMaterials = applyFiltersAndSort();
 
-    // 教材カードを表示
-    filteredMaterials.forEach(material => {
-        const materialCard = createMaterialCard(material);
-        container.appendChild(materialCard);
-    });
+    // ビューに応じて表示を切り替え
+    if (currentView === 'card') {
+        container.className = 'materials-grid';
+        filteredMaterials.forEach(material => {
+            const materialCard = createMaterialCard(material);
+            container.appendChild(materialCard);
+        });
+    } else {
+        container.className = 'materials-list';
+        filteredMaterials.forEach(material => {
+            const materialListItem = createMaterialListItem(material);
+            container.appendChild(materialListItem);
+        });
+    }
 
     showScreen('references-screen');
 }
@@ -1396,6 +1516,40 @@ function createMaterialCard(material) {
     return card;
 }
 
+function createMaterialListItem(material) {
+    const item = document.createElement('div');
+    item.className = 'material-list-item';
+
+    const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP');
+
+    const questions = appState.questions.filter(q => q.materialId === material.id);
+    const questionCount = questions.length;
+
+    // 正解率を計算
+    const answeredQuestions = questions.filter(q => q.lastReviewed);
+    const correctCount = answeredQuestions.filter(q => q.reviewCount > 0).length;
+    const accuracy = answeredQuestions.length > 0
+        ? Math.round((correctCount / answeredQuestions.length) * 100)
+        : 0;
+
+    item.innerHTML = `
+        <div class="material-list-main">
+            <div class="material-list-title">${material.title}</div>
+            <div class="material-list-date">${dateStr}</div>
+        </div>
+        <div class="material-list-stats">
+            <span class="list-stat-item">📝 ${questionCount}問</span>
+            <span class="list-stat-item">📊 ${accuracy}%</span>
+        </div>
+    `;
+
+    item.addEventListener('click', () => {
+        showMaterialDetail(material.id);
+    });
+
+    return item;
+}
+
 function applyFiltersAndSort() {
     let materials = [...appState.materials];
 
@@ -1429,6 +1583,21 @@ function applyFiltersAndSort() {
 // フィルター変更時のイベントリスナー
 document.getElementById('material-search')?.addEventListener('input', showMaterialsLibrary);
 document.getElementById('sort-filter')?.addEventListener('change', showMaterialsLibrary);
+
+// ビュー切り替えボタン
+document.getElementById('view-card-btn')?.addEventListener('click', function() {
+    currentView = 'card';
+    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+    this.classList.add('active');
+    showMaterialsLibrary();
+});
+
+document.getElementById('view-list-btn')?.addEventListener('click', function() {
+    currentView = 'list';
+    document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+    this.classList.add('active');
+    showMaterialsLibrary();
+});
 
 function deleteMaterial(materialId) {
     const material = appState.materials.find(m => m.id === materialId);
@@ -1530,31 +1699,57 @@ function updateQuestionsTab(material, questions) {
 
     questions.forEach((q, index) => {
         const questionCard = document.createElement('div');
-        questionCard.className = 'question-item';
+        questionCard.className = 'question-item-compact';
 
         const difficultyBadge = getDifficultyBadge(q.difficulty);
+        const correctAnswer = q.choices[q.correctIndex];
         const sectionTag = q.reference?.section || q.sourceSection || '不明';
         const lastReviewed = q.lastReviewed
             ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
             : '未学習';
 
-        // 参照元セクションのアンカーリンクを生成
-        const anchorId = 'heading-' + encodeURIComponent(sectionTag.replace(/\s+/g, '-'));
-        const sectionLink = `<a href="#${anchorId}" class="section-link" onclick="highlightHeading('${anchorId}'); return false;">🏷️ ${sectionTag}</a>`;
-
         questionCard.innerHTML = `
-            <div class="question-item-header">
-                <span class="question-number">Q${index + 1}</span>
-                ${difficultyBadge}
-            </div>
-            <div class="question-item-text">${q.question}</div>
-            <div class="question-item-meta">
-                <span class="section-tag">${sectionLink}</span>
-                <span class="last-reviewed">最終学習: ${lastReviewed}</span>
+            <div class="question-item-row">
+                <div class="question-item-main">
+                    <div class="question-item-header-compact">
+                        ${difficultyBadge}
+                        <span class="last-reviewed-compact">${lastReviewed}</span>
+                    </div>
+                    <div class="question-item-text-compact">${q.question}</div>
+                    <div class="question-item-answer">
+                        <span class="answer-label">正解:</span>
+                        <span class="answer-text">${correctAnswer}</span>
+                    </div>
+                </div>
+                <div class="question-item-actions">
+                    <button class="btn-icon archive-question-btn" data-question-id="${q.id}" title="アーカイブ">
+                        📦
+                    </button>
+                    <button class="btn-icon delete-question-btn" data-question-id="${q.id}" title="削除">
+                        🗑️
+                    </button>
+                </div>
             </div>
         `;
 
         container.appendChild(questionCard);
+    });
+
+    // アーカイブ/削除ボタンのイベントリスナー
+    container.querySelectorAll('.archive-question-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const questionId = btn.dataset.questionId;
+            archiveQuestion(questionId, material.id);
+        });
+    });
+
+    container.querySelectorAll('.delete-question-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const questionId = btn.dataset.questionId;
+            deleteQuestion(questionId, material.id);
+        });
     });
 }
 
@@ -2314,3 +2509,41 @@ document.addEventListener('DOMContentLoaded', () => {
     initHomeScreen();
     updateReportTab();
 });
+
+// ========================================
+// 問題のアーカイブ/削除
+// ========================================
+function archiveQuestion(questionId, materialId) {
+    const question = appState.questions.find(q => q.id === questionId);
+    if (!question) return;
+
+    if (!confirm(`この問題をアーカイブしますか？\n\nアーカイブされた問題は出題されなくなります。`)) {
+        return;
+    }
+
+    // アーカイブフラグを追加
+    question.archived = true;
+    saveQuestions();
+
+    // 教材詳細を再表示
+    showMaterialDetail(materialId);
+    alert('問題をアーカイブしました');
+}
+
+function deleteQuestion(questionId, materialId) {
+    const question = appState.questions.find(q => q.id === questionId);
+    if (!question) return;
+
+    const confirmMessage = `この問題を削除しますか？\n\n問題: ${question.question}\n\nこの操作は取り消せません。`;
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // 問題を削除
+    appState.questions = appState.questions.filter(q => q.id !== questionId);
+    saveQuestions();
+
+    // 教材詳細を再表示
+    showMaterialDetail(materialId);
+    alert('問題を削除しました');
+}

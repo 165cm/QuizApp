@@ -140,6 +140,7 @@
                                 <label class="config-label-compact">出題範囲</label>
                                 <select id="material-select" class="config-select-compact">
                                     <option value="all">全ての問題からランダム</option>
+                                    <option value="review-priority">復習待ち優先</option>
                                 </select>
                             </div>
                             <div class="config-row-compact">
@@ -169,7 +170,7 @@
                             <div class="stat-label-compact">正解率</div>
                             <div class="stat-value-compact" id="accuracy-rate">0%</div>
                         </div>
-                        <div class="stat-card-compact">
+                        <div class="stat-card-compact clickable" id="review-count-card">
                             <div class="stat-label-compact">復習待ち</div>
                             <div class="stat-value-compact" id="review-count">0</div>
                         </div>
@@ -250,6 +251,10 @@
                         <option value="date-asc">古い順</option>
                         <option value="title">タイトル順</option>
                     </select>
+                    <div class="view-switcher">
+                        <button id="view-card-btn" class="view-btn active" data-view="card">📇 カード</button>
+                        <button id="view-list-btn" class="view-btn" data-view="list">📋 リスト</button>
+                    </div>
                 </div>
 
                 <div id="references-list" class="materials-grid">
@@ -328,6 +333,24 @@
                     <button id="delete-material-btn" class="btn btn-danger">
                         🗑️ この教材を削除
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 復習待ち問題一覧画面 -->
+        <div id="review-list-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-home-from-review-btn" class="btn-text">← ホームへ</button>
+                    <h1 class="logo">📝 復習待ち問題</h1>
+                </div>
+
+                <div class="review-list-info">
+                    <p><span id="review-list-count">0</span>件の復習待ち問題があります</p>
+                </div>
+
+                <div id="review-questions-list" class="review-questions-list">
+                    <!-- 復習待ち問題一覧がここに表示されます -->
                 </div>
             </div>
         </div>
