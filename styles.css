@@ -1059,39 +1059,98 @@ body {
     border-radius: 8px;
 }
 
-/* 次へボタン - コンパクト */
-.btn-compact {
-    padding: 12px 32px;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
+/* フィードバックモーダル */
+.feedback-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    animation: fadeIn 0.2s ease;
+}
+
+.feedback-modal.hidden {
+    display: none;
+}
+
+.feedback-modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+    position: relative;
+}
+
+.feedback-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.feedback-modal-header #feedback-icon {
+    font-size: 48px;
+}
+
+.feedback-modal-header #feedback-title {
+    font-size: 28px;
     font-weight: 700;
-    background: #4f46e5;
+}
+
+.feedback-modal-explanation {
+    font-size: 16px;
+    line-height: 1.7;
+    color: #374151;
+    margin-bottom: 24px;
+    text-align: left;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border-left: 4px solid #4f46e5;
+}
+
+.feedback-modal-timer {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #9ca3af;
+    background: #f3f4f6;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-modal {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     color: white;
     cursor: pointer;
     transition: all 0.3s ease;
-    display: inline-block;
-    margin-right: 12px;
 }
 
-.btn-compact:hover {
-    background: #4338ca;
+.btn-modal:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-}
-
-.btn-text-small {
-    background: none;
-    border: none;
-    color: #6b7280;
-    font-size: 13px;
-    cursor: pointer;
-    padding: 8px;
-    transition: color 0.2s;
-}
-
-.btn-text-small:hover {
-    color: #1f2937;
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
 }
 
 /* 教材ライブラリ - コンパクト */

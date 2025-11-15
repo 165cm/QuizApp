@@ -259,15 +259,17 @@
                     <div id="choices-container" class="choices-container"></div>
                 </div>
 
-                <!-- フィードバック -->
-                <div id="feedback" class="feedback hidden">
-                    <div class="feedback-header">
-                        <span id="feedback-icon"></span>
-                        <span id="feedback-title"></span>
+                <!-- フィードバックモーダル -->
+                <div id="feedback-modal" class="feedback-modal hidden">
+                    <div class="feedback-modal-content">
+                        <div class="feedback-modal-header">
+                            <span id="feedback-icon"></span>
+                            <span id="feedback-title"></span>
+                        </div>
+                        <div id="feedback-explanation" class="feedback-modal-explanation"></div>
+                        <div class="feedback-modal-timer" id="feedback-timer">2</div>
+                        <button id="next-question-btn" class="btn-modal">次へ →</button>
                     </div>
-                    <div id="feedback-explanation" class="feedback-explanation"></div>
-                    <button id="next-question-btn" class="btn-compact">次へ →</button>
-                    <button id="back-to-explanation-btn" class="btn-text-small">← 戻る</button>
                 </div>
 
                 <!-- 10秒休憩 -->
