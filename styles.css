@@ -483,6 +483,36 @@ body {
     cursor: not-allowed;
 }
 
+/* クイズナビゲーション（目立たない） */
+.quiz-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0;
+    padding: 0 10px;
+}
+
+.nav-link {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px 12px;
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #4f46e5;
+    text-decoration: underline;
+}
+
+.nav-link:disabled {
+    color: #d1d5db;
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
 /* フィードバック */
 .feedback {
     background: white;

@@ -19,6 +19,7 @@ let appState = {
     },
     selectedAnswer: null,
     currentMaterialId: null,
+    previousQuestion: null,  // 前の問題を保持（解説読み直し用）
     // 学習設定
     selectedMaterial: 'all', // 選択された教材ID（'all'は全問題）
     questionCount: 10 // 出題数
@@ -462,16 +463,16 @@ async function generateQuestionsWithAI(text, fileName) {
 4. **歴史・語源・エピソード**: 記憶に残る背景情報
 5. **間違い選択肢の罠の解説**: 「なぜ〇〇と間違えやすいか」を明示
 
-### 解説文の構成（5-7文）:
-- 1文目: 正解の確認と基本的な説明
-- 2-3文目: 深い理由、歴史的背景、語源など記憶に残る情報
-- 4文目: 実践的な使用例・重要性
-- 5文目: 次に知りたくなる疑問への先回り回答
-- 6文目: よくある間違いや誤解の指摘
-- 7文目: まとめ・発展的なヒント
+### 解説文の構成（3-5文、200-300文字厳守）:
+**重要**: 10秒で読み切れる量にすること！文字数は200-300文字以内に収める。
+- 1文目: 正解の確認と基本的な説明（語源やイメージ）
+- 2-3文目: 最も重要な洞察を1つ（深い理由、歴史、実践的知識のいずれか）
+- 4文目: 次に疑問に思うことへの先回り回答、またはよくある間違いの指摘
+- 5文目: 記憶に残るまとめ（覚え方のヒントや発展的なポイント）
 
-例：❌「葉緑体です。」
-    ✅「正解は葉緑体（chloroplast）です！この名前は"chloro（緑）"と"plast（形成体）"から来ています。葉緑体の最も驚くべき事実は、もともと独立したシアノバクテリアという生物だったこと。約15億年前、植物の祖先がこのバクテリアを"飲み込んだ"のですが、消化せずに共生関係を築いたのです（これを内部共生説と言います）。では、動物にはなぜ葉緑体がないのでしょう？実は、一部のウミウシは葉緑体を取り込んで光合成する能力を持っているんです！「ミトコンドリア」と間違えやすいのですが、ミトコンドリアは"エネルギーを使う"器官、葉緑体は"エネルギーを作る"器官と覚えましょう。現在でも葉緑体は独自のDNAを持ち、細胞分裂とは別に自己増殖する、まさに"細胞内の居候"なのです！」
+例：❌「葉緑体です。」（簡素すぎ）
+    ❌「正解は葉緑体（chloroplast）です！この名前は"chloro（緑）"と"plast（形成体）"から来ています。葉緑体の最も驚くべき事実は、もともと独立したシアノバクテリアという生物だったこと。約15億年前、植物の祖先がこのバクテリアを"飲み込んだ"のですが、消化せずに共生関係を築いたのです（これを内部共生説と言います）。では、動物にはなぜ葉緑体がないのでしょう？実は、一部のウミウシは葉緑体を取り込んで光合成する能力を持っているんです！「ミトコンドリア」と間違えやすいのですが、ミトコンドリアは"エネルギーを使う"器官、葉緑体は"エネルギーを作る"器官と覚えましょう。現在でも葉緑体は独自のDNAを持ち、細胞分裂とは別に自己増殖する、まさに"細胞内の居候"なのです！」（長すぎ、約350文字）
+    ✅「正解は葉緑体（chloroplast）です！名前は"chloro（緑）"+"plast（形成体）"から。実はもともと独立したシアノバクテリアで、15億年前に植物の祖先に取り込まれました（内部共生説）。「ミトコンドリア」と混同しやすいですが、ミトコンドリアは"エネルギーを使う"器官、葉緑体は"エネルギーを作る"器官です。独自のDNAを持ち、細胞内で自己増殖する"居候"として今も生き続けています！」（約200文字）
 
 ## その他の要件:
 1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出
@@ -495,7 +496,7 @@ async function generateQuestionsWithAI(text, fileName) {
       "question": "具体例+イメージ+ヒント付きの問題文（3-4文、記憶のフックを含む）",
       "choices": ["選択肢1（正解）", "選択肢2（よくある誤解）", "選択肢3（混同しやすい概念）", "選択肢4（似た名前の別物）"],
       "correctIndex": 0,
-      "explanation": "深い理由+次の疑問への回答+実践的知識を含む解説文（5-7文、単なる肯定ではなく洞察を提供）",
+      "explanation": "深い洞察を含む解説文（3-5文、200-300文字厳守、10秒で読み切れる量）",
       "difficulty": "basic",
       "sourceSection": "見出し1",
       "tags": ["実用的タグ1", "タグ2", "タグ3", "タグ4", "タグ5"]
@@ -506,9 +507,10 @@ async function generateQuestionsWithAI(text, fileName) {
 注意:
 - sourceSectionは必ずsectionsのheadingと一致させること
 - すべての問題に必ずsourceSectionとtagsを含めること
-- **最重要**: 解説は「いいですね！」「素晴らしい！」などの表面的な励ましではなく、学習者が「なるほど！」「そういうことか！」と腑に落ちる深い洞察を提供すること
+- **最重要**: 解説は200-300文字厳守（10秒で読み切れる量）
+- 解説は「いいですね！」「素晴らしい！」などの表面的な励ましではなく、学習者が「なるほど！」「そういうことか！」と腑に落ちる深い洞察を提供すること
 - 問題文には必ず「具体的な使用例」と「記憶のフック」を含めること
-- 解説には必ず「次に疑問に思うであろうこと」への先回り回答を含めること
+- 解説には必ず「次に疑問に思うであろうこと」への先回り回答、またはよくある間違いの指摘を含めること
 
 テキスト:
 ${truncatedText}`;
@@ -851,7 +853,7 @@ function displayQuestion() {
     question.choices.forEach((choice, index) => {
         const btn = document.createElement('button');
         btn.className = 'choice-btn';
-        btn.textContent = choice;
+        btn.textContent = `${index + 1}. ${choice}`;  // 番号を追加
         btn.onclick = () => selectChoice(index);
         container.appendChild(btn);
     });
@@ -859,6 +861,19 @@ function displayQuestion() {
     // リセット
     appState.selectedAnswer = null;
     document.getElementById('feedback-modal').classList.add('hidden');
+
+    // ナビゲーション表示制御
+    const navigation = document.getElementById('quiz-navigation');
+    const reviewBtn = document.getElementById('review-explanation-btn');
+    if (navigation && reviewBtn) {
+        if (appState.currentQuestionIndex > 0 && appState.previousQuestion) {
+            navigation.classList.remove('hidden');
+            reviewBtn.disabled = false;
+        } else {
+            navigation.classList.add('hidden');
+            reviewBtn.disabled = true;
+        }
+    }
 }
 
 // 自動進行用のタイマーID
@@ -920,13 +935,17 @@ function checkAnswer() {
     const explanation = document.getElementById('feedback-explanation');
     const timer = document.getElementById('feedback-timer');
 
+    // 正解の選択肢を表示
+    const correctChoice = question.choices[question.correctIndex];
+    const correctChoiceText = `${question.correctIndex + 1}. ${correctChoice}`;
+
     if (isCorrect) {
         icon.textContent = '🎉';
-        title.textContent = '正解!';
+        title.textContent = correctChoiceText;
         title.style.color = '#10b981';
     } else {
         icon.textContent = '💡';
-        title.textContent = '不正解';
+        title.textContent = correctChoiceText;
         title.style.color = '#ef4444';
     }
 
@@ -981,6 +1000,9 @@ function nextQuestion() {
         autoProgressTimer = null;
     }
 
+    // 現在の問題を前の問題として保存（解説読み直し用）
+    appState.previousQuestion = appState.currentQuiz[appState.currentQuestionIndex];
+
     // フィードバックモーダルを隠す
     document.getElementById('feedback-modal').classList.add('hidden');
 
@@ -997,6 +1019,60 @@ function nextQuestion() {
         }
     } else {
         // クイズ終了
+        finishQuiz();
+    }
+}
+
+// 前の問題の解説を再表示
+function showPreviousExplanation() {
+    if (!appState.previousQuestion) return;
+
+    const feedbackModal = document.getElementById('feedback-modal');
+    const icon = document.getElementById('feedback-icon');
+    const title = document.getElementById('feedback-title');
+    const explanation = document.getElementById('feedback-explanation');
+    const timer = document.getElementById('feedback-timer');
+
+    // 正解の選択肢を表示
+    const correctChoice = appState.previousQuestion.choices[appState.previousQuestion.correctIndex];
+    const correctChoiceText = `${appState.previousQuestion.correctIndex + 1}. ${correctChoice}`;
+
+    icon.textContent = '📖';
+    title.textContent = correctChoiceText;
+    title.style.color = '#4f46e5';
+    explanation.textContent = appState.previousQuestion.explanation;
+    timer.style.display = 'none';  // タイマー非表示
+
+    feedbackModal.classList.remove('hidden');
+
+    // 次へボタンを「閉じる」に変更
+    const nextBtn = document.getElementById('next-question-btn');
+    const originalText = nextBtn.textContent;
+    nextBtn.textContent = '閉じる';
+
+    const closeHandler = () => {
+        feedbackModal.classList.add('hidden');
+        timer.style.display = 'flex';  // タイマー表示を戻す
+        nextBtn.textContent = originalText;
+        nextBtn.removeEventListener('click', closeHandler);
+        nextBtn.addEventListener('click', nextQuestion);
+    };
+
+    nextBtn.removeEventListener('click', nextQuestion);
+    nextBtn.addEventListener('click', closeHandler);
+}
+
+// 現在の問題をスキップ
+function skipCurrentQuestion() {
+    // 回答せずに次の問題に進む
+    appState.selectedAnswer = null;
+    document.getElementById('feedback-modal').classList.add('hidden');
+
+    if (appState.currentQuestionIndex < appState.currentQuiz.length - 1) {
+        appState.currentQuestionIndex++;
+        displayQuestion();
+    } else {
+        // 最後の問題の場合はクイズを終了
         finishQuiz();
     }
 }
@@ -1669,60 +1745,33 @@ function generateShareData(materialId) {
 }
 
 /**
- * dpaste.orgに教材データをアップロードして共有URLを生成
+ * LZ-string圧縮で共有URLを生成
  */
-async function generateShareURL(materialId) {
+function generateShareURL(materialId) {
     const shareData = generateShareData(materialId);
-    const jsonStr = JSON.stringify(shareData);
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(shareData));
+    const baseURL = window.location.href.split('?')[0];
+    const shareURL = `${baseURL}?share=${compressed}`;
 
-    try {
-        // dpaste.org APIで匿名ペーストを作成（完全無料・認証不要）
-        const formData = new FormData();
-        formData.append('content', jsonStr);
-        formData.append('syntax', 'json');
-        formData.append('expiry_days', '365'); // 1年間保存
-
-        const response = await fetch('https://dpaste.org/api/', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error(`dpaste API error: ${response.status}`);
+    // URL長の警告
+    if (shareURL.length > 2000) {
+        console.warn(`⚠️ Share URL is ${shareURL.length} characters (recommended < 2000). Some browsers may have issues.`);
+        if (shareURL.length > 8000) {
+            throw new Error(`共有URLが長すぎます（${shareURL.length}文字）。問題数を減らしてください。`);
         }
-
-        const pasteUrl = await response.text();
-        console.log('Paste URL received:', pasteUrl);
-
-        // pasteUrlから正しくIDを抽出（例: https://dpaste.org/abc123 → abc123）
-        const trimmedUrl = pasteUrl.trim();
-        const match = trimmedUrl.match(/dpaste\.org\/([a-zA-Z0-9]+)/);
-
-        if (!match) {
-            throw new Error(`Invalid paste URL format: ${trimmedUrl}`);
-        }
-
-        const pasteId = match[1];
-        console.log('Extracted paste ID:', pasteId);
-
-        const baseURL = window.location.href.split('?')[0];
-        const shareURL = `${baseURL}?paste=${pasteId}`;
-
-        console.log('Share URL:', shareURL);
-        return shareURL;
-    } catch (err) {
-        console.error('Failed to create paste:', err);
-        throw err;
     }
+
+    console.log(`Share URL generated: ${shareURL.length} characters`);
+    return shareURL;
 }
 
 /**
- * URLをクリップボードにコピー（dpaste.org使用）
+ * URLをクリップボードにコピー（LZ-string圧縮使用）
  */
-async function copyShareURL(materialId) {
+function copyShareURL(materialId) {
     try {
-        const url = await generateShareURL(materialId);
-        await navigator.clipboard.writeText(url);
+        const url = generateShareURL(materialId);
+        navigator.clipboard.writeText(url);
         return true;
     } catch (err) {
         console.error('Failed to copy URL:', err);
@@ -1731,11 +1780,11 @@ async function copyShareURL(materialId) {
 }
 
 /**
- * QRコードを生成して表示（dpaste.org使用）
+ * QRコードを生成して表示（LZ-string圧縮使用）
  */
-async function generateQRCode(materialId) {
+function generateQRCode(materialId) {
     try {
-        const url = await generateShareURL(materialId);
+        const url = generateShareURL(materialId);
         const qrContainer = document.getElementById('qr-code');
         qrContainer.innerHTML = ''; // 既存のQRコードをクリア
 
@@ -1812,42 +1861,24 @@ function importSharedMaterial(shareData) {
 /**
  * ページ読み込み時に共有URLパラメータをチェック
  */
-async function checkForSharedMaterial() {
+function checkForSharedMaterial() {
     const urlParams = new URLSearchParams(window.location.search);
-    const pasteId = urlParams.get('paste');
-    const legacyShare = urlParams.get('share');
+    const share = urlParams.get('share');
+
+    if (!share) {
+        return;  // 共有パラメータなし
+    }
 
     try {
-        let shareData;
+        console.log('Loading from share URL (LZ-string compressed)');
+        const decompressed = LZString.decompressFromEncodedURIComponent(share);
 
-        if (pasteId) {
-            // dpaste.orgから取得（.rawエンドポイントはCORS対応）
-            console.log('Loading from dpaste, paste ID:', pasteId);
-            const fetchUrl = `https://dpaste.org/${pasteId}.raw`;
-            console.log('Fetching from:', fetchUrl);
-
-            const response = await fetch(fetchUrl);
-            console.log('Response status:', response.status);
-
-            if (!response.ok) {
-                throw new Error(`dpaste API error: ${response.status} ${response.statusText}`);
-            }
-
-            const jsonStr = await response.text();
-            console.log('Received data length:', jsonStr.length);
-            console.log('First 100 chars:', jsonStr.substring(0, 100));
-
-            shareData = JSON.parse(jsonStr);
-            console.log('Parsed share data:', shareData);
-        } else if (legacyShare) {
-            // レガシーURL形式（LZ-string圧縮）
-            console.log('Loading from legacy share URL');
-            const decompressed = LZString.decompressFromEncodedURIComponent(legacyShare);
-            shareData = JSON.parse(decompressed);
-        } else {
-            // 共有パラメータなし
-            return;
+        if (!decompressed) {
+            throw new Error('URLの解凍に失敗しました。URLが正しいか確認してください。');
         }
+
+        const shareData = JSON.parse(decompressed);
+        console.log('Parsed share data:', shareData);
 
         // バージョンチェック
         if (shareData.version !== 1) {
@@ -1930,6 +1961,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('next-question-btn');
     if (nextBtn) {
         nextBtn.addEventListener('click', nextQuestion);
+    }
+
+    // ナビゲーションボタン
+    const reviewBtn = document.getElementById('review-explanation-btn');
+    const skipBtn = document.getElementById('skip-question-btn');
+
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', () => {
+            if (appState.previousQuestion) {
+                showPreviousExplanation();
+            }
+        });
+    }
+
+    if (skipBtn) {
+        skipBtn.addEventListener('click', () => {
+            skipCurrentQuestion();
+        });
     }
 
     // ========================================
