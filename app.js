@@ -21,7 +21,7 @@ let appState = {
     currentMaterialId: null,
     previousQuestion: null,  // 前の問題を保持（解説読み直し用）
     // 学習設定
-    selectedMaterial: 'all', // 選択された教材ID（'all'は全問題）
+    selectedMaterial: 'review-priority', // 選択された教材ID（デフォルトは復習待ち優先）
     questionCount: 10 // 出題数
 };
 
@@ -111,11 +111,16 @@ function updateTagCloud() {
     // 最大正解回数を取得（フォントサイズの正規化用）
     const maxCorrect = Math.max(...sortedTags.map(tag => tagStats[tag].correct), 1);
 
-    // タグクラウドを生成
+    // タグクラウドを生成（学習回数0のタグは非表示）
     sortedTags.forEach(tag => {
         const stat = tagStats[tag];
         const correctCount = stat.correct;
         const totalCount = stat.total;
+
+        // 学習回数が0のタグはスキップ
+        if (totalCount === 0) {
+            return;
+        }
 
         // 正解回数に応じてフォントサイズを調整（12px〜28px）
         const fontSize = 12 + Math.floor((correctCount / maxCorrect) * 16);
@@ -487,12 +492,23 @@ async function generateQuestionsWithAI(text, fileName) {
 ❌「「ケノット」は「できない」という意味です。」（カタカナ変換）
 ✅「正解は「Kenot」です！標準マレー語の「tidak boleh（できない）」を短縮したスラングで、若者の間で頻繁に使われます。「Kenot la（できないよ）」のように「la」を付けて使うことが多いです。反対の「できる」は「Boleh」。日常会話では「Can or kenot?（できる？できない？）」のような使い方もします。カジュアルな場面専用で、フォーマルな場では避けましょう！」（約200文字）
 
+## 問題文の作成方針:
+- 問題文に選択肢と直接的に結びつくヒントを含めないこと
+- 選択肢の単語を問題文で直接使用しない
+- 説明的・状況的な問題文にし、学習者に考えさせる
+- 問題文だけで答えがわかるような表現は避ける
+
+例：
+❌「『Kenot』の意味は何ですか？」（直接的すぎる）
+✅「友人が『今日は忙しいから、kenot la』と言いました。この状況での意味は？」（文脈で考えさせる）
+
 ## その他の要件:
 1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出
 2. 各見出しセクションから問題を生成し、対応する見出しを記録
-3. 難易度: 基礎(10問)、標準(10問)、応用(10問)
-4. 各問題に5つ程度の関連タグを付与
-5. JSON形式で出力
+3. **問題数**: 最大30問（学習目的に沿って過不足なく。多ければ良いわけではない）
+4. **難易度配分**: 基礎40%、標準40%、応用20%の割合で
+5. 各問題に5つ程度の関連タグを付与
+6. JSON形式で出力
 
 出力形式:
 {
@@ -537,7 +553,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは、記憶定着と深い理解を促進する学習コンテンツの専門家です。\n\n最重要事項：\n1. **学習目的の明確化**: まずテキストを分析し、「何を学習すべきか」を特定してから問題を作成する\n2. **原語の厳格な保持**: 外国語の単語、専門用語、固有名詞は絶対にカタカナ変換しない（例：「Kenot」→「ケノット」は禁止）\n3. **文脈に沿った問題**: 学習目的と使用場面を明確にした問題文を作る\n4. **深い洞察**: 表面的な励ましではなく、語源、文化的背景、実践的な使用法を提供する\n5. **記憶定着**: 具体的な使用例、覚えやすいイメージ、次の疑問への先回り回答を含める\n\n学習者が「なるほど！」「これは役に立つ！」「忘れられない！」と感じる、実践的で記憶に残るクイズを作成してください。'
+                    content: 'あなたは、記憶定着と深い理解を促進する学習コンテンツの専門家です。\n\n最重要事項：\n1. **学習目的の明確化**: まずテキストを分析し、「何を学習すべきか」を特定してから問題を作成する\n2. **原語の厳格な保持**: 外国語の単語、専門用語、固有名詞は絶対にカタカナ変換しない（例：「Kenot」→「ケノット」は禁止）\n3. **文脈に沿った問題**: 学習目的と使用場面を明確にした問題文を作る\n4. **問題文と選択肢の分離**: 問題文に選択肢と直接結びつくヒントを含めない。状況や文脈で考えさせる\n5. **深い洞察**: 表面的な励ましではなく、語源、文化的背景、実践的な使用法を提供する\n6. **記憶定着**: 具体的な使用例、覚えやすいイメージ、次の疑問への先回り回答を含める\n7. **適切な問題数**: 最大30問まで。学習目的に沿って過不足なく生成（多ければ良いわけではない）\n\n学習者が「なるほど！」「これは役に立つ！」「忘れられない！」と感じる、実践的で記憶に残るクイズを作成してください。'
                 },
                 {
                     role: 'user',
@@ -1699,51 +1715,28 @@ function updateQuestionsTab(material, questions) {
 
     questions.forEach((q, index) => {
         const questionCard = document.createElement('div');
-        questionCard.className = 'question-item-compact';
+        questionCard.className = 'question-item-mini';
 
-        const difficultyBadge = getDifficultyBadge(q.difficulty);
         const correctAnswer = q.choices[q.correctIndex];
-        const sectionTag = q.reference?.section || q.sourceSection || '不明';
-        const lastReviewed = q.lastReviewed
-            ? new Date(q.lastReviewed).toLocaleDateString('ja-JP')
-            : '未学習';
 
         questionCard.innerHTML = `
-            <div class="question-item-row">
-                <div class="question-item-main">
-                    <div class="question-item-header-compact">
-                        ${difficultyBadge}
-                        <span class="last-reviewed-compact">${lastReviewed}</span>
-                    </div>
-                    <div class="question-item-text-compact">${q.question}</div>
-                    <div class="question-item-answer">
-                        <span class="answer-label">正解:</span>
-                        <span class="answer-text">${correctAnswer}</span>
-                    </div>
-                </div>
-                <div class="question-item-actions">
-                    <button class="btn-icon archive-question-btn" data-question-id="${q.id}" title="アーカイブ">
-                        📦
-                    </button>
-                    <button class="btn-icon delete-question-btn" data-question-id="${q.id}" title="削除">
-                        🗑️
-                    </button>
-                </div>
+            <div class="question-mini-row">
+                <div class="question-mini-label">Q</div>
+                <div class="question-mini-text">${q.question}</div>
+            </div>
+            <div class="question-mini-row answer-row">
+                <div class="question-mini-label">A</div>
+                <div class="question-mini-answer">${correctAnswer}</div>
+                <button class="btn-icon-mini delete-question-btn" data-question-id="${q.id}" title="削除">
+                    🗑️
+                </button>
             </div>
         `;
 
         container.appendChild(questionCard);
     });
 
-    // アーカイブ/削除ボタンのイベントリスナー
-    container.querySelectorAll('.archive-question-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const questionId = btn.dataset.questionId;
-            archiveQuestion(questionId, material.id);
-        });
-    });
-
+    // 削除ボタンのイベントリスナー
     container.querySelectorAll('.delete-question-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1764,10 +1757,14 @@ function updateContentTab(material) {
     content = content.replace(/https?:\/\/\S+\.(png|jpg|jpeg|gif|svg)/gi, ''); // 画像URL
 
     // 改行を<br>に変換し、見出しを強調、見出しにアンカーIDを付ける
-    // Callout風の装飾を追加
     const formattedContent = content
         .split('\n')
         .map(line => {
+            // 太字処理を全ての行で実行
+            if (line.includes('**')) {
+                line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            }
+
             if (line.startsWith('# ')) {
                 const heading = line.substring(2);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
@@ -1780,24 +1777,17 @@ function updateContentTab(material) {
                 const heading = line.substring(4);
                 const anchorId = 'heading-' + encodeURIComponent(heading.replace(/\s+/g, '-'));
                 return `<h3 id="${anchorId}" class="content-heading-h3">${heading}</h3>`;
-            } else if (line.startsWith('> ')) {
-                // Callout風のブロック引用
-                const text = line.substring(2);
-                return `<div class="content-callout">${text}</div>`;
             } else if (line.startsWith('- ') || line.startsWith('* ')) {
                 // リスト項目
                 const text = line.substring(2);
                 return `<div class="content-list-item">• ${text}</div>`;
             } else if (line.trim() === '') {
-                return '<br>';
-            } else if (line.includes('**') && line.match(/\*\*(.*?)\*\*/)) {
-                // 太字をハイライト
-                const highlighted = line.replace(/\*\*(.*?)\*\*/g, '<strong class="content-highlight">$1</strong>');
-                return `<p>${highlighted}</p>`;
+                return '';
             } else {
                 return `<p>${line}</p>`;
             }
         })
+        .filter(line => line !== '')
         .join('');
 
     container.innerHTML = formattedContent;
@@ -2019,6 +2009,39 @@ function generateShareURL(materialId) {
 }
 
 /**
+ * 認定証共有データを生成（軽量版）
+ */
+function generateCertificateShareData() {
+    const { correct, total } = appState.currentSession;
+    const accuracy = Math.round((correct / total) * 100);
+    const quizTitle = appState.sharedQuizTitle || 'クイズ';
+    const now = new Date();
+
+    return {
+        version: 1,
+        type: 'certificate',
+        quizTitle: quizTitle,
+        accuracy: accuracy,
+        correct: correct,
+        total: total,
+        date: now.toISOString()
+    };
+}
+
+/**
+ * 認定証共有URLを生成（短縮版）
+ */
+function generateCertificateShareURL() {
+    const certData = generateCertificateShareData();
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(certData));
+    const baseURL = window.location.href.split('?')[0];
+    const shareURL = `${baseURL}?cert=${compressed}`;
+
+    console.log(`Certificate share URL generated: ${shareURL.length} characters`);
+    return shareURL;
+}
+
+/**
  * URLをクリップボードにコピー（LZ-string圧縮使用）
  */
 function copyShareURL(materialId) {
@@ -2156,6 +2179,87 @@ function checkForSharedMaterial() {
 }
 
 /**
+ * ページ読み込み時に認定証URLパラメータをチェック
+ */
+function checkForSharedCertificate() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const cert = urlParams.get('cert');
+
+    if (!cert) {
+        return false;  // 認定証パラメータなし
+    }
+
+    try {
+        console.log('Loading from certificate URL (LZ-string compressed)');
+        const decompressed = LZString.decompressFromEncodedURIComponent(cert);
+
+        if (!decompressed) {
+            throw new Error('URLの解凍に失敗しました。URLが正しいか確認してください。');
+        }
+
+        const certData = JSON.parse(decompressed);
+        console.log('Parsed certificate data:', certData);
+
+        // バージョン・タイプチェック
+        if (certData.version !== 1 || certData.type !== 'certificate') {
+            throw new Error('サポートされていないデータ形式です');
+        }
+
+        // 認定証画面を表示
+        showSharedCertificate(certData);
+
+        // URLはクリーンアップしない（戻るボタンで戻れるように）
+        return true;
+    } catch (err) {
+        console.error('Failed to load shared certificate:', err);
+        console.error('Error details:', err.message, err.stack);
+        alert(`認定証の読み込みに失敗しました。\n\nエラー: ${err.message}\n\nURLが正しいか確認してください。`);
+
+        // エラー時はURLをクリーンアップ
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return false;
+    }
+}
+
+/**
+ * 共有された認定証を表示
+ */
+function showSharedCertificate(certData) {
+    const { quizTitle, accuracy, correct, total, date } = certData;
+
+    // 認定書の内容を設定
+    document.getElementById('cert-quiz-title').textContent = quizTitle;
+    document.getElementById('cert-score').textContent = `${accuracy}%`;
+    document.getElementById('cert-detail').textContent = `(${total}問中${correct}問正解)`;
+
+    // 日付を設定
+    const certDate = new Date(date);
+    const dateStr = `${certDate.getFullYear()}年${certDate.getMonth() + 1}月${certDate.getDate()}日`;
+    document.getElementById('cert-date').textContent = dateStr;
+
+    // 認定書画面を表示（共有モード）
+    appState.isSharedQuiz = true; // 共有モードフラグ
+    appState.sharedQuizTitle = quizTitle;
+    appState.currentSession = { correct, total };
+
+    // 共有された認定証を見ている場合は「もう一度挑戦」ボタンを非表示
+    // （クイズデータがないため）
+    const tryAgainBtn = document.getElementById('try-again-btn');
+    if (tryAgainBtn) {
+        tryAgainBtn.style.display = 'none';
+    }
+
+    // シェアボタンのテキストを変更
+    const shareCertBtn = document.getElementById('share-certificate-btn');
+    if (shareCertBtn) {
+        shareCertBtn.textContent = '📤 私も結果をシェア';
+        shareCertBtn.style.display = 'none'; // まだクイズを受けていないので非表示
+    }
+
+    showScreen('certificate-screen');
+}
+
+/**
  * シェア専用LP画面を表示
  */
 function showSharedQuizLanding(materialId, shareData) {
@@ -2193,7 +2297,13 @@ function showSharedQuizLanding(materialId, shareData) {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     // 共有URLのチェック（最初に実行）
-    checkForSharedMaterial();
+    // 認定証URLを優先してチェック
+    const isCertificate = checkForSharedCertificate();
+
+    // 認定証でない場合は教材共有をチェック
+    if (!isCertificate) {
+        checkForSharedMaterial();
+    }
     // ========================================
     // ホーム画面タブ切り替え
     // ========================================
@@ -2407,21 +2517,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const accuracy = Math.round((correct / total) * 100);
             const quizTitle = appState.sharedQuizTitle || 'クイズ';
 
-            // 結果をテキストで共有
-            const shareText = `🏆 ${quizTitle}の認定証を獲得しました！\n\n正解率: ${accuracy}% (${total}問中${correct}問正解)\n\nあなたも挑戦してみませんか？`;
+            try {
+                // 認定証専用の短縮URLを生成
+                const certURL = generateCertificateShareURL();
 
-            if (navigator.share) {
-                // Web Share API が使える場合
-                navigator.share({
-                    title: '認定証',
-                    text: shareText,
-                    url: window.location.href
-                }).catch(err => console.log('Share failed:', err));
-            } else {
-                // フォールバック: クリップボードにコピー
-                navigator.clipboard.writeText(shareText + '\n' + window.location.href)
-                    .then(() => alert('結果をクリップボードにコピーしました！'))
-                    .catch(err => console.error('Copy failed:', err));
+                // 心理学に基づく魅力的な共有メッセージ
+                // - 社会的比較による動機付け
+                // - 競争心を刺激
+                // - 短くパンチの効いた表現
+                const shareText = `${quizTitle}で正解率${accuracy}%を達成！🎯 あなたは何%取れる？挑戦してみて！`;
+
+                if (navigator.share) {
+                    // Web Share API が使える場合
+                    navigator.share({
+                        title: `${quizTitle} - 正解率${accuracy}%`,
+                        text: shareText,
+                        url: certURL
+                    }).catch(err => console.log('Share failed:', err));
+                } else {
+                    // フォールバック: クリップボードにコピー
+                    navigator.clipboard.writeText(shareText + '\n' + certURL)
+                        .then(() => alert('認定証URLをクリップボードにコピーしました！'))
+                        .catch(err => console.error('Copy failed:', err));
+                }
+            } catch (err) {
+                console.error('Failed to generate certificate share URL:', err);
+                alert('共有URLの生成に失敗しました。');
             }
         });
     }
