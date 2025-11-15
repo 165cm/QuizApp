@@ -10,6 +10,8 @@ on:
 
 jobs:
   deploy-preview:
+    # Vercelトークンが設定されている場合のみ実行
+    if: ${{ secrets.VERCEL_TOKEN != '' }}
     runs-on: ubuntu-latest
 
     steps:

@@ -208,7 +208,7 @@ QuizApp/
 
 **URL形式:** `https://<username>.github.io/<repository>/`
 
-#### 2. **Vercel（プレビュー機能が強力）**
+#### 2. **Vercel（プレビュー機能が強力）** ※現在無効化中
 ブランチごとに異なるプレビューURLを発行。
 
 **セットアップ:**
@@ -218,7 +218,11 @@ QuizApp/
    - `VERCEL_TOKEN`: Vercel Settings → Tokens から取得
    - `VERCEL_ORG_ID`: Vercel Project Settings → General から取得
    - `VERCEL_PROJECT_ID`: 同上
-4. コミット&プッシュで自動デプロイ
+4. ワークフローを有効化:
+   ```bash
+   mv .github/workflows/preview-deploy.yml.disabled .github/workflows/preview-deploy.yml
+   ```
+5. コミット&プッシュで自動デプロイ
 
 **特徴:**
 - コミットごとに一意のプレビューURL
