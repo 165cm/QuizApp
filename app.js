@@ -858,16 +858,37 @@ function displayQuestion() {
         });
     }
 
-    // 選択肢表示
+    // 選択肢表示（ランダム順序）
     const container = document.getElementById('choices-container');
     container.innerHTML = '';
-    question.choices.forEach((choice, index) => {
+
+    // 選択肢をシャッフル（元のインデックスを保持）
+    const choicesWithIndex = question.choices.map((choice, index) => ({ choice, originalIndex: index }));
+    const shuffledChoices = shuffleArray([...choicesWithIndex]);
+
+    // シャッフルされた順序で正解のインデックスを更新
+    const shuffledCorrectIndex = shuffledChoices.findIndex(item => item.originalIndex === Number(question.correctIndex));
+
+    shuffledChoices.forEach((item, displayIndex) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'choice-wrapper';
+
+        const number = document.createElement('span');
+        number.className = 'choice-number';
+        number.textContent = displayIndex + 1;
+
         const btn = document.createElement('button');
         btn.className = 'choice-btn';
-        btn.textContent = `${index + 1}. ${choice}`;  // 番号を追加
-        btn.onclick = () => selectChoice(index);
-        container.appendChild(btn);
+        btn.textContent = item.choice;
+        btn.onclick = () => selectChoice(displayIndex);
+
+        wrapper.appendChild(number);
+        wrapper.appendChild(btn);
+        container.appendChild(wrapper);
     });
+
+    // シャッフル後の正解インデックスを一時保存
+    question._shuffledCorrectIndex = shuffledCorrectIndex;
 
     // リセット
     appState.selectedAnswer = null;
@@ -894,7 +915,8 @@ function selectChoice(index) {
     // 既に回答済みなら無視
     if (appState.selectedAnswer !== null) return;
 
-    appState.selectedAnswer = index;
+    // 型を数値に厳密化
+    appState.selectedAnswer = Number(index);
 
     // UI更新
     const choices = document.querySelectorAll('.choice-btn');
@@ -917,7 +939,11 @@ function checkAnswer() {
     }
 
     const question = appState.currentQuiz[appState.currentQuestionIndex];
-    const isCorrect = appState.selectedAnswer === question.correctIndex;
+    // 型を数値に厳密化して比較
+    const selectedAnswer = Number(appState.selectedAnswer);
+    // シャッフル後の正解インデックスを使用
+    const correctIndex = Number(question._shuffledCorrectIndex);
+    const isCorrect = selectedAnswer === correctIndex;
 
     // 統計更新
     appState.currentSession.total++;
@@ -932,9 +958,9 @@ function checkAnswer() {
     const choices = document.querySelectorAll('.choice-btn');
     choices.forEach((btn, i) => {
         btn.disabled = true;
-        if (i === question.correctIndex) {
+        if (i === correctIndex) {
             btn.classList.add('correct');
-        } else if (i === appState.selectedAnswer && !isCorrect) {
+        } else if (i === selectedAnswer && !isCorrect) {
             btn.classList.add('incorrect');
         }
     });
@@ -946,17 +972,13 @@ function checkAnswer() {
     const explanation = document.getElementById('feedback-explanation');
     const timer = document.getElementById('feedback-timer');
 
-    // 正解の選択肢を表示
-    const correctChoice = question.choices[question.correctIndex];
-    const correctChoiceText = `${question.correctIndex + 1}. ${correctChoice}`;
-
     if (isCorrect) {
         icon.textContent = '🎉';
-        title.textContent = correctChoiceText;
+        title.textContent = '正解';
         title.style.color = '#10b981';
     } else {
         icon.textContent = '💡';
-        title.textContent = correctChoiceText;
+        title.textContent = '不正解';
         title.style.color = '#ef4444';
     }
 
@@ -1963,6 +1985,7 @@ function showSharedQuizLanding(materialId, shareData) {
         startBtn.addEventListener('click', () => {
             // クイズを開始
             appState.currentMaterialId = materialId;
+            appState.selectedMaterial = materialId;  // 教材フィルター用
             appState.isSharedQuiz = true;  // シェアクイズフラグ
             appState.sharedQuizTitle = title;  // 認定書用
             startQuiz();

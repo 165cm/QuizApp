@@ -448,7 +448,25 @@ body {
     gap: 12px;
 }
 
+.choice-wrapper {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.choice-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: auto;
+    font-size: 18px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
 .choice-btn {
+    flex: 1;
     background: #f3f4f6;
     border: 2px solid transparent;
     border-radius: 12px;
@@ -1757,7 +1775,7 @@ body {
     padding: 12px 24px;
     border: none;
     background: none;
-    color: #6b7280;
+    color: #374151;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -1924,7 +1942,7 @@ body {
     font-size: 24px;
     font-weight: 800;
     color: #1f2937;
-    margin: 32px 0 16px 0;
+    margin: 24px 0 12px 0;
     padding-bottom: 8px;
     border-bottom: 3px solid #667eea;
 }
@@ -1933,18 +1951,18 @@ body {
     font-size: 20px;
     font-weight: 700;
     color: #374151;
-    margin: 24px 0 12px 0;
+    margin: 20px 0 10px 0;
 }
 
 .material-content h3 {
     font-size: 17px;
     font-weight: 600;
     color: #4b5563;
-    margin: 20px 0 10px 0;
+    margin: 16px 0 8px 0;
 }
 
 .material-content p {
-    margin: 12px 0;
+    margin: 16px 0;
 }
 
 /* Callout風の装飾 */
@@ -1969,11 +1987,8 @@ body {
 }
 
 .content-highlight {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 700;
-    color: #92400e;
+    font-weight: 600;
+    color: #374151;
 }
 
 /* 見出しのハイライト効果（問題からジャンプした時用） */
