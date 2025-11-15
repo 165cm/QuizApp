@@ -720,3 +720,43 @@ body {
 .btn-text:hover {
     opacity: 0.8;
 }
+
+/* 見出しリスト */
+.sections-list {
+    margin: 16px 0;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.section-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.section-item:last-child {
+    margin-bottom: 0;
+}
+
+.section-name {
+    font-size: 14px;
+    color: #374151;
+    font-weight: 500;
+    flex: 1;
+}
+
+.section-count {
+    font-size: 13px;
+    color: #667eea;
+    font-weight: 600;
+    background: #ede9fe;
+    padding: 4px 12px;
+    border-radius: 12px;
+}

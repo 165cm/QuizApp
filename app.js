@@ -191,21 +191,41 @@ async function generateQuestionsWithAI(text, fileName) {
     const prompt = `以下のテキストから30問の4択クイズを生成してください。
 
 要件:
-1. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
-2. 選択肢には「よくある誤解」を含める(実は間違えた効果)
-3. JSON形式で出力
-4. 日本語で出力
+1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出してください
+2. 各見出しセクションから問題を生成し、各問題に対応する見出しを記録してください
+3. 各問題は基礎(10問)、標準(10問)、応用(10問)の3つの難易度に分類
+4. 選択肢には「よくある誤解」を含める(実は間違えた効果)
+5. JSON形式で出力
+6. 日本語で出力
 
 出力形式:
-[
-  {
-    "question": "問題文",
-    "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
-    "correctIndex": 0,
-    "explanation": "解説文",
-    "difficulty": "basic"
-  }
-]
+{
+  "sections": [
+    {
+      "heading": "見出し1",
+      "level": 1
+    },
+    {
+      "heading": "見出し2",
+      "level": 1
+    }
+  ],
+  "questions": [
+    {
+      "question": "問題文",
+      "choices": ["選択肢1", "選択肢2", "選択肢3", "選択肢4"],
+      "correctIndex": 0,
+      "explanation": "解説文",
+      "difficulty": "basic",
+      "sourceSection": "見出し1"
+    }
+  ]
+}
+
+注意:
+- sourceSectionは必ず上記sectionsの中のheadingのいずれかと一致すること
+- 見出しが明確でない場合は、テキストの内容から適切なトピック名を作成してください
+- すべての問題に必ずsourceSectionを含めてください
 
 テキスト:
 ${truncatedText}`;
@@ -221,7 +241,7 @@ ${truncatedText}`;
             messages: [
                 {
                     role: 'system',
-                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成します。'
+                    content: 'あなたは教育用クイズ作成の専門家です。与えられたテキストから質の高い学習用クイズを生成し、各問題の参照元セクションを明確に記録します。'
                 },
                 {
                     role: 'user',
@@ -242,19 +262,29 @@ ${truncatedText}`;
     const content = data.choices[0].message.content;
 
     // JSONパース
-    let questions;
+    let parsed;
     try {
-        const parsed = JSON.parse(content);
-        // レスポンスが配列またはオブジェクトの場合を処理
-        questions = Array.isArray(parsed) ? parsed : (parsed.questions || Object.values(parsed)[0]);
+        parsed = JSON.parse(content);
     } catch (e) {
         console.error('JSON parse error:', e);
         throw new Error('生成されたクイズの形式が不正です');
     }
 
+    // sectionsとquestionsを取得
+    const sections = parsed.sections || [];
+    const questions = parsed.questions || [];
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+        throw new Error('クイズが生成されませんでした');
+    }
+
     // 参照元情報を作成
     const referenceId = 'ref_' + Date.now();
     const uploadDate = new Date().toISOString();
+
+    // 見出し情報をlocalStorageに保存（参照元IDをキーとして）
+    const sectionsKey = `sections_${referenceId}`;
+    localStorage.setItem(sectionsKey, JSON.stringify(sections));
 
     // 間隔反復用のデータと参照元情報を追加
     return questions.map(q => ({
@@ -268,7 +298,8 @@ ${truncatedText}`;
         reference: {
             id: referenceId,
             fileName: fileName,
-            uploadDate: uploadDate
+            uploadDate: uploadDate,
+            section: q.sourceSection || '不明'
         }
     }));
 }
@@ -736,6 +767,31 @@ function showReferencesScreen() {
               })
             : '不明';
 
+        // 見出し別にグループ化
+        const sectionGroups = new Map();
+        ref.questions.forEach(q => {
+            const section = q.reference?.section || '不明';
+            if (!sectionGroups.has(section)) {
+                sectionGroups.set(section, []);
+            }
+            sectionGroups.get(section).push(q);
+        });
+
+        // 見出し情報のHTML生成
+        let sectionsHTML = '';
+        if (sectionGroups.size > 0) {
+            sectionsHTML = '<div class="sections-list">';
+            sectionGroups.forEach((questions, section) => {
+                sectionsHTML += `
+                    <div class="section-item">
+                        <span class="section-name">${section}</span>
+                        <span class="section-count">${questions.length}問</span>
+                    </div>
+                `;
+            });
+            sectionsHTML += '</div>';
+        }
+
         refCard.innerHTML = `
             <div class="reference-header">
                 <div class="reference-info">
@@ -746,6 +802,7 @@ function showReferencesScreen() {
                     <div class="reference-count">${ref.questions.length}問</div>
                 </div>
             </div>
+            ${sectionsHTML}
             <div class="reference-actions">
                 <button class="btn btn-danger btn-sm" onclick="deleteReference('${ref.id}')">
                     🗑️ 削除
