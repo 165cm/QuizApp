@@ -260,6 +260,20 @@
                             <!-- タグクラウドがここに表示されます -->
                         </div>
                     </div>
+
+                    <!-- データリセットセクション -->
+                    <div class="data-reset-section">
+                        <h3 class="section-title-compact">データ管理</h3>
+                        <div class="data-reset-card">
+                            <p class="data-reset-description">
+                                すべての教材、問題、学習履歴を削除して、アプリを初期状態に戻します。<br>
+                                <strong>この操作は取り消せません。</strong>
+                            </p>
+                            <button id="reset-all-data-btn" class="btn-danger">
+                                🗑️ すべてのデータをリセット
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -281,8 +295,8 @@
                         <option value="title">タイトル順</option>
                     </select>
                     <div class="view-switcher">
-                        <button id="view-card-btn" class="view-btn active" data-view="card">📇 カード</button>
-                        <button id="view-list-btn" class="view-btn" data-view="list">📋 リスト</button>
+                        <button id="view-list-btn" class="view-btn active" data-view="list">📋 リスト</button>
+                        <button id="view-shared-btn" class="view-btn" data-view="shared">📤 共有済み</button>
                     </div>
                 </div>
 

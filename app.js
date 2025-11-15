@@ -1454,7 +1454,7 @@ function showReviewList() {
 // 教材ライブラリ管理
 // ========================================
 let filteredMaterials = [];
-let currentView = 'card'; // 'card' or 'list'
+let currentView = 'list'; // 'card' or 'list' - デフォルトはリスト表示
 
 function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -1469,20 +1469,31 @@ function showMaterialsLibrary() {
     // フィルターとソートを適用
     filteredMaterials = applyFiltersAndSort();
 
-    // ビューに応じて表示を切り替え
-    if (currentView === 'card') {
-        container.className = 'materials-grid';
-        filteredMaterials.forEach(material => {
-            const materialCard = createMaterialCard(material);
-            container.appendChild(materialCard);
-        });
+    // ビューに応じて教材をフィルタリング
+    if (currentView === 'shared') {
+        // 共有済みビュー：共有された教材のみ表示
+        filteredMaterials = filteredMaterials.filter(m => m.isShared);
+        if (filteredMaterials.length === 0) {
+            container.innerHTML = '<div class="empty-message">まだ共有された教材がありません。</div>';
+            showScreen('references-screen');
+            return;
+        }
     } else {
-        container.className = 'materials-list';
-        filteredMaterials.forEach(material => {
-            const materialListItem = createMaterialListItem(material);
-            container.appendChild(materialListItem);
-        });
+        // 通常ビュー：共有された教材を除外
+        filteredMaterials = filteredMaterials.filter(m => !m.isShared);
+        if (filteredMaterials.length === 0) {
+            container.innerHTML = '<div class="empty-message">まだ教材が登録されていません。<br>PDFをアップロードしてクイズを生成してください。</div>';
+            showScreen('references-screen');
+            return;
+        }
     }
+
+    // ビューに応じて表示を切り替え（リスト表示のみ）
+    container.className = 'materials-list';
+    filteredMaterials.forEach(material => {
+        const materialListItem = createMaterialListItem(material);
+        container.appendChild(materialListItem);
+    });
 
     showScreen('references-screen');
 }
@@ -1601,15 +1612,15 @@ document.getElementById('material-search')?.addEventListener('input', showMateri
 document.getElementById('sort-filter')?.addEventListener('change', showMaterialsLibrary);
 
 // ビュー切り替えボタン
-document.getElementById('view-card-btn')?.addEventListener('click', function() {
-    currentView = 'card';
+document.getElementById('view-list-btn')?.addEventListener('click', function() {
+    currentView = 'list';
     document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
     this.classList.add('active');
     showMaterialsLibrary();
 });
 
-document.getElementById('view-list-btn')?.addEventListener('click', function() {
-    currentView = 'list';
+document.getElementById('view-shared-btn')?.addEventListener('click', function() {
+    currentView = 'shared';
     document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
     this.classList.add('active');
     showMaterialsLibrary();
@@ -1684,6 +1695,22 @@ function showMaterialDetail(materialId) {
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
     document.getElementById('tab-overview').classList.add('active');
+
+    // 共有済み/共有された教材のシェアボタンをグレーアウト
+    const shareBtn = document.getElementById('share-material-btn');
+    if (shareBtn) {
+        if (material.isShared || material.hasBeenShared) {
+            shareBtn.disabled = true;
+            shareBtn.style.opacity = '0.5';
+            shareBtn.style.cursor = 'not-allowed';
+            shareBtn.title = '共有された教材は再共有できません';
+        } else {
+            shareBtn.disabled = false;
+            shareBtn.style.opacity = '1';
+            shareBtn.style.cursor = 'pointer';
+            shareBtn.title = '';
+        }
+    }
 
     showScreen('material-detail-screen');
 }
@@ -2048,6 +2075,23 @@ function copyShareURL(materialId) {
     try {
         const url = generateShareURL(materialId);
         navigator.clipboard.writeText(url);
+
+        // 共有済みフラグを設定
+        const material = appState.materials.find(m => m.id === materialId);
+        if (material) {
+            material.hasBeenShared = true;
+            localStorage.setItem('materials', JSON.stringify(appState.materials));
+
+            // シェアボタンをグレーアウト
+            const shareBtn = document.getElementById('share-material-btn');
+            if (shareBtn) {
+                shareBtn.disabled = true;
+                shareBtn.style.opacity = '0.5';
+                shareBtn.style.cursor = 'not-allowed';
+                shareBtn.title = '共有済みの教材です';
+            }
+        }
+
         return true;
     } catch (err) {
         console.error('Failed to copy URL:', err);
@@ -2079,6 +2123,22 @@ function generateQRCode(materialId) {
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.M
         });
+
+        // 共有済みフラグを設定
+        const material = appState.materials.find(m => m.id === materialId);
+        if (material) {
+            material.hasBeenShared = true;
+            localStorage.setItem('materials', JSON.stringify(appState.materials));
+
+            // シェアボタンをグレーアウト
+            const shareBtn = document.getElementById('share-material-btn');
+            if (shareBtn) {
+                shareBtn.disabled = true;
+                shareBtn.style.opacity = '0.5';
+                shareBtn.style.cursor = 'not-allowed';
+                shareBtn.title = '共有済みの教材です';
+            }
+        }
     } catch (err) {
         console.error('Failed to generate QR code:', err);
         alert('QRコードの生成に失敗しました。');
@@ -2092,17 +2152,19 @@ function importSharedMaterial(shareData) {
     const newMaterialId = 'mat_' + Date.now();
     const newReferenceId = 'ref_' + Date.now();
 
-    // 教材を追加（タイトルに「(共有)」を付加）
+    // 教材を追加（タイトルに「(共有)」を付加 - 重複しないようにチェック）
+    const titleSuffix = shareData.material.title.endsWith(' (共有)') ? '' : ' (共有)';
     const newMaterial = {
         id: newMaterialId,
-        title: shareData.material.title + ' (共有)',
+        title: shareData.material.title + titleSuffix,
         summary: shareData.material.summary,
         // contentがない場合は要約から生成
         content: shareData.material.content || `# ${shareData.material.title}\n\n${shareData.material.summary}\n\n*この教材は共有URLからインポートされたため、元の本文は含まれていません。*`,
         tags: shareData.material.tags,
         fileName: shareData.material.fileName,
         uploadDate: new Date().toISOString(),
-        questionIds: []
+        questionIds: [],
+        isShared: true // 共有された教材フラグ
     };
 
     // 問題を追加（学習データをリセット）
@@ -2623,6 +2685,44 @@ document.addEventListener('DOMContentLoaded', () => {
         privacyModal.addEventListener('click', (e) => {
             if (e.target === privacyModal) {
                 privacyModal.classList.add('hidden');
+            }
+        });
+    }
+
+    // ========================================
+    // データ完全リセット
+    // ========================================
+    const resetAllDataBtn = document.getElementById('reset-all-data-btn');
+    if (resetAllDataBtn) {
+        resetAllDataBtn.addEventListener('click', () => {
+            const confirmed = confirm(
+                '⚠️ 警告\n\nすべての教材、問題、学習履歴が完全に削除されます。\nこの操作は取り消せません。\n\n本当にリセットしますか？'
+            );
+
+            if (confirmed) {
+                const doubleConfirmed = confirm(
+                    '最終確認\n\nすべてのデータを削除して、アプリを初期状態に戻します。\nよろしいですか？'
+                );
+
+                if (doubleConfirmed) {
+                    // localStorageを完全にクリア
+                    localStorage.clear();
+
+                    // アプリの状態をリセット
+                    appState.materials = [];
+                    appState.questions = [];
+                    appState.userStats = {
+                        totalAnswered: 0,
+                        totalCorrect: 0,
+                        streak: 0,
+                        lastStudyDate: null
+                    };
+
+                    alert('✅ すべてのデータが削除されました。\nページをリロードします。');
+
+                    // ページをリロード
+                    window.location.reload();
+                }
             }
         });
     }
