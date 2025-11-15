@@ -932,7 +932,13 @@ function checkAnswer() {
 
     const countdownInterval = setInterval(() => {
         countdown--;
-        timer.textContent = countdown;
+
+        // チラつき防止: 数字変更時に短いフェード効果を追加
+        timer.style.opacity = '0.5';
+        setTimeout(() => {
+            timer.textContent = countdown;
+            timer.style.opacity = '1';
+        }, 75);
 
         if (countdown <= 0) {
             clearInterval(countdownInterval);
@@ -1664,12 +1670,23 @@ async function generateShareURL(materialId) {
         }
 
         const pasteUrl = await response.text();
-        const pasteId = pasteUrl.trim().split('/').filter(Boolean).pop();
+        console.log('Paste URL received:', pasteUrl);
+
+        // pasteUrlから正しくIDを抽出（例: https://dpaste.org/abc123 → abc123）
+        const trimmedUrl = pasteUrl.trim();
+        const match = trimmedUrl.match(/dpaste\.org\/([a-zA-Z0-9]+)/);
+
+        if (!match) {
+            throw new Error(`Invalid paste URL format: ${trimmedUrl}`);
+        }
+
+        const pasteId = match[1];
+        console.log('Extracted paste ID:', pasteId);
 
         const baseURL = window.location.href.split('?')[0];
         const shareURL = `${baseURL}?paste=${pasteId}`;
 
-        console.log('Paste created:', pasteUrl);
+        console.log('Share URL:', shareURL);
         return shareURL;
     } catch (err) {
         console.error('Failed to create paste:', err);
@@ -1783,15 +1800,23 @@ async function checkForSharedMaterial() {
 
         if (pasteId) {
             // dpaste.orgから取得
-            console.log('Loading from dpaste:', pasteId);
-            const response = await fetch(`https://dpaste.org/${pasteId}.txt`);
+            console.log('Loading from dpaste, paste ID:', pasteId);
+            const fetchUrl = `https://dpaste.org/${pasteId}.txt`;
+            console.log('Fetching from:', fetchUrl);
+
+            const response = await fetch(fetchUrl);
+            console.log('Response status:', response.status);
 
             if (!response.ok) {
-                throw new Error(`dpaste API error: ${response.status}`);
+                throw new Error(`dpaste API error: ${response.status} ${response.statusText}`);
             }
 
             const jsonStr = await response.text();
+            console.log('Received data length:', jsonStr.length);
+            console.log('First 100 chars:', jsonStr.substring(0, 100));
+
             shareData = JSON.parse(jsonStr);
+            console.log('Parsed share data:', shareData);
         } else if (legacyShare) {
             // レガシーURL形式（LZ-string圧縮）
             console.log('Loading from legacy share URL');
@@ -1821,7 +1846,8 @@ async function checkForSharedMaterial() {
         alert(`「${shareData.material.title}」をインポートしました！\n問題数: ${shareData.questions.length}問`);
     } catch (err) {
         console.error('Failed to import shared material:', err);
-        alert('共有データの読み込みに失敗しました。URLが正しいか確認してください。');
+        console.error('Error details:', err.message, err.stack);
+        alert(`共有データの読み込みに失敗しました。\n\nエラー: ${err.message}\n\nURLが正しいか確認してください。`);
 
         // エラー時もURLをクリーンアップ
         window.history.replaceState({}, document.title, window.location.pathname);
