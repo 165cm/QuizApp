@@ -811,8 +811,7 @@ function displayQuestion() {
 
     // リセット
     appState.selectedAnswer = null;
-    document.getElementById('check-answer-btn').disabled = true;
-    document.getElementById('feedback').classList.add('hidden');
+    document.getElementById('feedback-modal').classList.add('hidden');
 }
 
 // 自動進行用のタイマーID
@@ -836,8 +835,6 @@ function selectChoice(index) {
     // 即座に正誤判定を実行
     checkAnswer();
 }
-
-document.getElementById('check-answer-btn').addEventListener('click', checkAnswer);
 
 function checkAnswer() {
     // 既にタイマーが動いている場合はクリア
@@ -869,11 +866,12 @@ function checkAnswer() {
         }
     });
 
-    // フィードバック表示
-    const feedback = document.getElementById('feedback');
+    // フィードバックモーダル表示
+    const feedbackModal = document.getElementById('feedback-modal');
     const icon = document.getElementById('feedback-icon');
     const title = document.getElementById('feedback-title');
     const explanation = document.getElementById('feedback-explanation');
+    const timer = document.getElementById('feedback-timer');
 
     if (isCorrect) {
         icon.textContent = '🎉';
@@ -886,21 +884,30 @@ function checkAnswer() {
     }
 
     explanation.textContent = question.explanation;
-    feedback.classList.remove('hidden');
+    feedbackModal.classList.remove('hidden');
 
     // 間隔反復アルゴリズム適用
     updateQuestionStats(question, isCorrect);
 
-    // ボタン非表示
-    document.getElementById('check-answer-btn').style.display = 'none';
+    // 2秒カウントダウンタイマー
+    let countdown = 2;
+    timer.textContent = countdown;
 
-    // 1秒で自動的に次へ進む
-    autoProgressTimer = setTimeout(() => {
-        nextQuestion();
+    const countdownInterval = setInterval(() => {
+        countdown--;
+        timer.textContent = countdown;
+
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+        }
     }, 1000);
-}
 
-document.getElementById('next-question-btn').addEventListener('click', nextQuestion);
+    // 2秒で自動的に次へ進む
+    autoProgressTimer = setTimeout(() => {
+        clearInterval(countdownInterval);
+        nextQuestion();
+    }, 2000);
+}
 
 function nextQuestion() {
     // 自動進行タイマーをクリア
@@ -909,7 +916,8 @@ function nextQuestion() {
         autoProgressTimer = null;
     }
 
-    document.getElementById('check-answer-btn').style.display = 'block';
+    // フィードバックモーダルを隠す
+    document.getElementById('feedback-modal').classList.add('hidden');
 
     if (appState.currentQuestionIndex < appState.currentQuiz.length - 1) {
         // 10秒休憩(10問ごと)
@@ -1525,54 +1533,12 @@ document.getElementById('generate-from-text-btn')?.addEventListener('click', asy
     await generateQuizFromText(text, 'テキスト入力');
 });
 
-// ========================================
-// ホーム画面タブ切り替え
-// ========================================
-document.querySelectorAll('.home-tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-tab');
-
-        // すべてのタブボタンとコンテンツから active を削除
-        document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
-
-        // クリックされたタブをアクティブに
-        btn.classList.add('active');
-        document.getElementById(`tab-${tab}`).classList.add('active');
-    });
-});
-
-// 教材生成タブのPDF/テキスト切り替え
-document.querySelectorAll('.mode-tab-compact').forEach(tab => {
-    tab.addEventListener('click', () => {
-        const mode = tab.getAttribute('data-mode');
-
-        // タブの切り替え
-        document.querySelectorAll('.mode-tab-compact').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        // コンテンツの切り替え
-        document.querySelectorAll('.input-mode').forEach(m => m.classList.remove('active'));
-        document.getElementById(`${mode}-mode`).classList.add('active');
-    });
-});
-
-// 出題数ボタン（コンパクト版）
-document.querySelectorAll('.count-btn-compact').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const count = parseInt(btn.getAttribute('data-count'));
-        appState.questionCount = count;
-
-        // ボタンの選択状態を更新
-        document.querySelectorAll('.count-btn-compact').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    });
-});
-
 // レポートタブの統計を更新する関数
 function updateReportTab() {
-    document.getElementById('total-answered').textContent = appState.userStats.totalAnswered;
-    document.getElementById('total-correct').textContent = appState.userStats.correctAnswers;
+    const totalAnswered = document.getElementById('total-answered');
+    const totalCorrect = document.getElementById('total-correct');
+    if (totalAnswered) totalAnswered.textContent = appState.userStats.totalAnswered;
+    if (totalCorrect) totalCorrect.textContent = appState.userStats.correctAnswers;
 }
 
 // 見出しをハイライトする関数
@@ -1602,6 +1568,56 @@ function highlightHeading(anchorId) {
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // ========================================
+    // ホーム画面タブ切り替え
+    // ========================================
+    document.querySelectorAll('.home-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-tab');
+
+            // すべてのタブボタンとコンテンツから active を削除
+            document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
+
+            // クリックされたタブをアクティブに
+            btn.classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        });
+    });
+
+    // 教材生成タブのPDF/テキスト切り替え
+    document.querySelectorAll('.mode-tab-compact').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const mode = tab.getAttribute('data-mode');
+
+            // タブの切り替え
+            document.querySelectorAll('.mode-tab-compact').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // コンテンツの切り替え
+            document.querySelectorAll('.input-mode').forEach(m => m.classList.remove('active'));
+            document.getElementById(`${mode}-mode`).classList.add('active');
+        });
+    });
+
+    // 出題数ボタン（コンパクト版）
+    document.querySelectorAll('.count-btn-compact').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const count = parseInt(btn.getAttribute('data-count'));
+            appState.questionCount = count;
+
+            // ボタンの選択状態を更新
+            document.querySelectorAll('.count-btn-compact').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // 次へボタン
+    const nextBtn = document.getElementById('next-question-btn');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextQuestion);
+    }
+
     initHomeScreen();
     updateReportTab();
 });
