@@ -72,6 +72,30 @@
                             ✨ 自分でクイズを作る
                         </button>
                     </div>
+
+                    <!-- メール登録カード -->
+                    <div class="certificate-email-card">
+                        <div class="certificate-email-header">
+                            <div class="certificate-email-icon">🎯</div>
+                            <h3 class="certificate-email-title">オリジナル問題生成機能</h3>
+                        </div>
+                        <p class="certificate-email-description">
+                            自分だけのクイズを作りたい方へ。早期アクセスと特別価格のご案内をお届けします。
+                        </p>
+                        <form id="certificate-email-form" class="certificate-email-form">
+                            <input
+                                type="email"
+                                id="certificate-email-input"
+                                class="certificate-email-input"
+                                placeholder="メールアドレスを入力"
+                                required
+                            >
+                            <button type="submit" class="certificate-email-btn">登録する</button>
+                        </form>
+                        <p class="certificate-email-note">
+                            登録することで、<a href="#" id="certificate-privacy-link" style="color: white; text-decoration: underline;">プライバシーポリシー</a>に同意したものとみなされます。
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -207,35 +231,6 @@
                                 <div id="file-name" class="file-name-compact"></div>
                             </div>
                             <button id="generate-btn" class="btn btn-primary btn-large-compact" disabled>クイズを生成</button>
-                        </div>
-                    </div>
-
-                    <!-- 早期アクセス登録セクション -->
-                    <div class="early-access-section">
-                        <div class="early-access-card">
-                            <div class="early-access-header">
-                                <div class="early-access-icon">🎯</div>
-                                <h3 class="early-access-title">オリジナル問題生成機能</h3>
-                            </div>
-                            <p class="early-access-description">
-                                今後、より高度なAI問題生成機能を追加予定です。<br>
-                                早期アクセスと特別価格のご案内をご希望の方は、メールアドレスをご登録ください。
-                            </p>
-                            <form id="email-signup-form" class="email-signup-form">
-                                <input
-                                    type="email"
-                                    id="email-input"
-                                    class="email-input"
-                                    placeholder="メールアドレスを入力"
-                                    required
-                                >
-                                <button type="submit" class="btn btn-primary">登録する</button>
-                            </form>
-                            <p class="privacy-note">
-                                登録することで、
-                                <a href="#" id="privacy-policy-link" class="privacy-link">プライバシーポリシー</a>
-                                に同意したものとみなされます。
-                            </p>
                         </div>
                     </div>
                 </div>

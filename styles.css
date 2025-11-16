@@ -2833,6 +2833,146 @@ body {
     transform: translateY(-2px);
 }
 
+/* 認定証画面のモバイル対応 */
+@media (max-width: 600px) {
+    .certificate-container {
+        padding: 12px;
+    }
+
+    .certificate-card {
+        padding: 24px 20px;
+        border-radius: 16px;
+        border: 4px solid #ffd700;
+    }
+
+    .certificate-badge {
+        font-size: 48px;
+    }
+
+    .certificate-title {
+        font-size: 20px;
+    }
+
+    .certificate-label {
+        font-size: 14px;
+    }
+
+    .certificate-quiz-title {
+        font-size: 20px;
+    }
+
+    .certificate-score {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .score-value {
+        font-size: 36px;
+    }
+
+    .score-detail {
+        font-size: 14px;
+    }
+
+    .btn-cert-share,
+    .btn-cert-retry,
+    .btn-cert-create {
+        padding: 14px;
+        font-size: 14px;
+    }
+}
+
+/* 認定証画面用のメール登録カード */
+.certificate-email-card {
+    margin-top: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.certificate-email-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.certificate-email-icon {
+    font-size: 24px;
+}
+
+.certificate-email-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.certificate-email-description {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    opacity: 0.95;
+}
+
+.certificate-email-form {
+    display: flex;
+    gap: 8px;
+}
+
+.certificate-email-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #1f2937;
+}
+
+.certificate-email-input:focus {
+    outline: none;
+    border-color: white;
+    background: white;
+}
+
+.certificate-email-btn {
+    padding: 10px 20px;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.certificate-email-btn:hover {
+    background: #f9fafb;
+}
+
+.certificate-email-note {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 8px;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .certificate-email-card {
+        padding: 16px;
+    }
+
+    .certificate-email-form {
+        flex-direction: column;
+    }
+
+    .certificate-email-btn {
+        width: 100%;
+    }
+}
+
 /* ========================================
    プライバシーポリシーモーダル
    ======================================== */
