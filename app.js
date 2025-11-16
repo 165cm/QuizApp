@@ -2578,32 +2578,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const { correct, total } = appState.currentSession;
             const accuracy = Math.round((correct / total) * 100);
             const quizTitle = appState.sharedQuizTitle || 'クイズ';
+            const materialId = appState.currentMaterialId;
+
+            if (!materialId) {
+                alert('共有する教材が見つかりません。');
+                return;
+            }
 
             try {
-                // 認定証専用の短縮URLを生成
-                const certURL = generateCertificateShareURL();
+                // クイズスタート画面のURLを生成（認定証ではなく）
+                const quizURL = generateShareURL(materialId);
 
-                // 心理学に基づく魅力的な共有メッセージ
-                // - 社会的比較による動機付け
+                // 挑戦意欲を高める短縮メッセージ
+                // - 簡潔で読みやすい
                 // - 競争心を刺激
-                // - 短くパンチの効いた表現
-                const shareText = `${quizTitle}で正解率${accuracy}%を達成！🎯 あなたは何%取れる？挑戦してみて！`;
+                // - アクションを促す
+                const shareText = `${quizTitle}\n正解率${accuracy}%でした！\n\nあなたは何問解ける？🎯`;
 
                 if (navigator.share) {
                     // Web Share API が使える場合
                     navigator.share({
-                        title: `${quizTitle} - 正解率${accuracy}%`,
+                        title: quizTitle,
                         text: shareText,
-                        url: certURL
+                        url: quizURL
                     }).catch(err => console.log('Share failed:', err));
                 } else {
                     // フォールバック: クリップボードにコピー
-                    navigator.clipboard.writeText(shareText + '\n' + certURL)
-                        .then(() => alert('認定証URLをクリップボードにコピーしました！'))
+                    navigator.clipboard.writeText(shareText + '\n\n' + quizURL)
+                        .then(() => alert('クイズURLをクリップボードにコピーしました！'))
                         .catch(err => console.error('Copy failed:', err));
                 }
             } catch (err) {
-                console.error('Failed to generate certificate share URL:', err);
+                console.error('Failed to generate quiz share URL:', err);
                 alert('共有URLの生成に失敗しました。');
             }
         });
@@ -2631,13 +2637,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========================================
-    // メール登録フォーム
+    // メール登録フォーム（認定証画面）
     // ========================================
-    const emailForm = document.getElementById('email-signup-form');
-    if (emailForm) {
-        emailForm.addEventListener('submit', (e) => {
+    const certificateEmailForm = document.getElementById('certificate-email-form');
+    if (certificateEmailForm) {
+        certificateEmailForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const emailInput = document.getElementById('email-input');
+            const emailInput = document.getElementById('certificate-email-input');
             const email = emailInput.value.trim();
 
             if (email) {
@@ -2656,6 +2662,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Email registered:', email);
                 // 本番環境では、ここでバックエンドAPIを呼び出す
                 // fetch('/api/signup', { method: 'POST', body: JSON.stringify({ email }) })
+            }
+        });
+    }
+
+    // 認定証画面のプライバシーポリシーリンク
+    const certificatePrivacyLink = document.getElementById('certificate-privacy-link');
+    if (certificatePrivacyLink) {
+        certificatePrivacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            const privacyModal = document.getElementById('privacy-policy-modal');
+            if (privacyModal) {
+                privacyModal.classList.remove('hidden');
             }
         });
     }
