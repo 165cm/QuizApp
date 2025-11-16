@@ -1559,22 +1559,96 @@ function createMaterialListItem(material) {
         ? Math.round((correctCount / answeredQuestions.length) * 100)
         : 0;
 
-    item.innerHTML = `
-        <div class="material-list-main">
-            <div class="material-list-title">${material.title}</div>
-            <div class="material-list-date">${dateStr}</div>
-        </div>
-        <div class="material-list-stats">
-            <span class="list-stat-item">📝 ${questionCount}問</span>
-            <span class="list-stat-item">📊 ${accuracy}%</span>
-        </div>
-    `;
+    // 共有済み一覧の場合は、シェアボタンを表示
+    if (currentView === 'shared') {
+        item.innerHTML = `
+            <div class="material-list-main">
+                <div class="material-list-title">${material.title}</div>
+                <div class="material-list-date">${dateStr} · ${questionCount}問</div>
+            </div>
+            <div class="shared-material-actions">
+                <button class="btn-icon share-copy-btn" data-material-id="${material.id}" title="URLをコピー">
+                    🔗
+                </button>
+                <button class="btn-icon share-qr-btn" data-material-id="${material.id}" title="QRコード">
+                    📱
+                </button>
+            </div>
+        `;
 
-    item.addEventListener('click', () => {
-        showMaterialDetail(material.id);
-    });
+        // URLコピーボタン
+        const copyBtn = item.querySelector('.share-copy-btn');
+        copyBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            copyBtn.disabled = true;
+            copyBtn.textContent = '⏳';
+
+            try {
+                await copyShareURL(material.id);
+                copyBtn.textContent = '✅';
+                setTimeout(() => {
+                    copyBtn.textContent = '🔗';
+                    copyBtn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                copyBtn.textContent = '❌';
+                setTimeout(() => {
+                    copyBtn.textContent = '🔗';
+                    copyBtn.disabled = false;
+                }, 2000);
+            }
+        });
+
+        // QRコードボタン
+        const qrBtn = item.querySelector('.share-qr-btn');
+        qrBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showQRCodeModal(material.id);
+        });
+    } else {
+        // 通常一覧の場合は従来通り
+        item.innerHTML = `
+            <div class="material-list-main">
+                <div class="material-list-title">${material.title}</div>
+                <div class="material-list-date">${dateStr}</div>
+            </div>
+            <div class="material-list-stats">
+                <span class="list-stat-item">📝 ${questionCount}問</span>
+                <span class="list-stat-item">📊 ${accuracy}%</span>
+            </div>
+        `;
+
+        item.addEventListener('click', () => {
+            showMaterialDetail(material.id);
+        });
+    }
 
     return item;
+}
+
+// QRコードモーダルを表示
+function showQRCodeModal(materialId) {
+    const shareModal = document.getElementById('share-modal');
+    const qrContainer = document.getElementById('qr-code');
+    const resultArea = document.getElementById('share-result');
+    const successMsg = document.getElementById('share-success');
+    const qrCodeContainer = document.getElementById('qr-code-container');
+
+    if (!shareModal) {
+        console.error('Share modal not found');
+        return;
+    }
+
+    // モーダルを表示
+    shareModal.classList.remove('hidden');
+
+    // 結果エリアを表示
+    resultArea.classList.remove('hidden');
+    successMsg.classList.add('hidden');
+    qrCodeContainer.classList.remove('hidden');
+
+    // QRコードを生成
+    generateQRCode(materialId);
 }
 
 function applyFiltersAndSort() {
@@ -1696,10 +1770,11 @@ function showMaterialDetail(materialId) {
     document.querySelector('.tab-btn[data-tab="overview"]').classList.add('active');
     document.getElementById('tab-overview').classList.add('active');
 
-    // 共有済み/共有された教材のシェアボタンをグレーアウト
+    // 共有された教材（isShared）のみシェアボタンをグレーアウト
+    // 自分が共有した教材（hasBeenShared）は何度でも共有可能
     const shareBtn = document.getElementById('share-material-btn');
     if (shareBtn) {
-        if (material.isShared || material.hasBeenShared) {
+        if (material.isShared) {
             shareBtn.disabled = true;
             shareBtn.style.opacity = '0.5';
             shareBtn.style.cursor = 'not-allowed';
