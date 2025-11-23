@@ -215,6 +215,16 @@
                             <button class="mode-tab-compact" data-mode="url">🌐 URL</button>
                         </div>
 
+                        <!-- 画像生成オプション -->
+                        <div class="image-gen-option">
+                            <label class="image-gen-toggle">
+                                <input type="checkbox" id="image-gen-checkbox">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">🎨 画像付きクイズ（5問限定）</span>
+                            </label>
+                            <p class="image-gen-hint">各問題に記憶定着をサポートするユニークな画像を生成します</p>
+                        </div>
+
                         <!-- テキストモード -->
                         <div id="text-mode" class="input-mode active">
                             <textarea id="text-input" class="text-input-area-compact" placeholder="学習したいテキストを貼り付け..."></textarea>
@@ -435,6 +445,9 @@
                 </div>
 
                 <div class="question-card">
+                    <div id="question-image-container" class="quiz-image-container" style="display: none;">
+                        <img id="question-image" class="quiz-image" alt="Quiz illustration">
+                    </div>
                     <h2 id="question-text" class="question-text"></h2>
                     <div id="choices-container" class="choices-container"></div>
                 </div>
