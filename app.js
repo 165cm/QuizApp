@@ -505,28 +505,26 @@ async function fetchTextFromUrl(url) {
 
 // 画像生成用のクリエイティブなプロンプトを生成
 async function generateImagePrompt(question, choices, correctAnswer) {
-    const prompt = `あなたはクイズの記憶定着をサポートする画像のプロンプトを生成するエキスパートです。
-
-以下のクイズ問題に関連する画像のプロンプトを生成してください。
-
-【重要なルール】
-1. 答えを直接示唆してはいけません（正解のテキストや選択肢を含めない）
-2. 問題のテーマや概念を象徴的・抽象的に表現する
-3. 記憶に残るインパクトのあるビジュアルにする
-4. シュールレアリスム、メタファー、意外な組み合わせを活用
-5. 感情や驚きを喚起するシーンを描写
+    const prompt = `クイズ問題の「状況」や「テーマ」を視覚化する画像プロンプトを生成してください。
 
 【問題】
 ${question}
 
-【選択肢】
-${choices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+【ルール】
+1. 答えの文字やヒントは絶対に含めない
+2. 問題の「状況」や「概念」をイラストで表現
+3. シンプルで見やすい構図
+4. 明るい色使い、フラットデザイン
+5. 人物を含める場合は行動中のシーン
 
-【正解】
-${correctAnswer}
+スタイル: モダンなイラスト、Dribbble風、16:9横長
 
-上記の問題の「テーマ」「概念」「背景知識」を連想させる、しかし答えは明かさない、記憶に残るユニークな画像のプロンプトを英語で100語以内で生成してください。
-プロンプトのみを出力し、他の説明は不要です。`;
+例：
+- 料理の問題 → キッチンで調理中の人
+- プログラミング → コードが映るモニターと人
+- 歴史 → その時代の風景や建物
+
+英語で80語以内のプロンプトのみを出力。`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -537,8 +535,8 @@ ${correctAnswer}
         body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 200,
-            temperature: 0.9
+            max_tokens: 150,
+            temperature: 0.7
         })
     });
 
@@ -560,9 +558,9 @@ async function generateImageWithDALLE(imagePrompt) {
         },
         body: JSON.stringify({
             model: 'dall-e-3',
-            prompt: `Create a memorable, artistic illustration: ${imagePrompt}. Style: vibrant colors, surreal elements, visually striking composition. No text in the image.`,
+            prompt: `${imagePrompt}. Style: modern flat illustration, clean composition, bright colors. No text or letters in the image.`,
             n: 1,
-            size: '1024x1024',
+            size: '1792x1024',
             quality: 'standard'
         })
     });
@@ -1202,6 +1200,21 @@ function displayQuestion() {
         } else {
             navigation.classList.add('hidden');
             reviewBtn.disabled = true;
+        }
+    }
+
+    // 次の問題の画像を事前読み込み
+    preloadNextQuestionImage();
+}
+
+// 次の問題の画像を事前読み込み
+function preloadNextQuestionImage() {
+    const nextIndex = appState.currentQuestionIndex + 1;
+    if (nextIndex < appState.currentQuiz.length) {
+        const nextQuestion = appState.currentQuiz[nextIndex];
+        if (nextQuestion.imageUrl) {
+            const img = new Image();
+            img.src = nextQuestion.imageUrl;
         }
     }
 }
