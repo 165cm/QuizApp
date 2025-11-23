@@ -208,10 +208,11 @@
 
                     <!-- 教材追加セクション -->
                     <div class="upload-section-compact">
-                        <!-- PDF/テキスト切り替えタブ -->
+                        <!-- PDF/テキスト/URL切り替えタブ -->
                         <div class="input-mode-tabs-compact">
                             <button class="mode-tab-compact active" data-mode="text">📝 テキスト</button>
                             <button class="mode-tab-compact" data-mode="pdf">📄 PDF</button>
+                            <button class="mode-tab-compact" data-mode="url">🌐 URL</button>
                         </div>
 
                         <!-- テキストモード -->
@@ -231,6 +232,13 @@
                                 <div id="file-name" class="file-name-compact"></div>
                             </div>
                             <button id="generate-btn" class="btn btn-primary btn-large-compact" disabled>クイズを生成</button>
+                        </div>
+
+                        <!-- URLモード -->
+                        <div id="url-mode" class="input-mode">
+                            <input type="url" id="url-input" class="url-input-compact" placeholder="https://example.com/article">
+                            <p class="url-hint">WebページのURLを入力してください。記事やブログなどのテキストコンテンツからクイズを生成します。</p>
+                            <button id="generate-from-url-btn" class="btn btn-primary btn-large-compact">URLからクイズを生成</button>
                         </div>
                     </div>
                 </div>
