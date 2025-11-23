@@ -362,6 +362,117 @@ async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
     }
 }
 
+// URLからクイズを生成
+async function generateQuizFromUrl(url) {
+    showScreen('generating-screen');
+
+    try {
+        // URLからテキストを取得
+        updateGeneratingStatus('Webページを取得中...', 10);
+        const text = await fetchTextFromUrl(url);
+
+        if (!text || text.trim().length < 100) {
+            throw new Error('Webページからテキストを抽出できませんでした。別のURLを試してください。');
+        }
+
+        // テキストをマークダウン形式に変換
+        updateGeneratingStatus('テキストを整形中...', 25);
+        const markdownText = await convertTextToMarkdown(text);
+
+        // 教材メタデータ生成
+        updateGeneratingStatus('教材情報を分析中...', 40);
+        const hostname = new URL(url).hostname;
+        const metadata = await generateMaterialMetadata(markdownText, hostname);
+
+        // クイズ生成
+        updateGeneratingStatus('AIがクイズを生成中...', 60);
+        const questions = await generateQuestionsWithAI(markdownText, url);
+
+        // 教材IDを生成
+        const materialId = 'mat_' + Date.now();
+
+        // 教材データを作成・保存
+        const material = {
+            id: materialId,
+            title: metadata.title,
+            summary: metadata.summary,
+            fileName: url,
+            content: markdownText,
+            tags: metadata.tags || [],
+            uploadDate: new Date().toISOString(),
+            questionIds: questions.map(q => q.id)
+        };
+
+        appState.materials.push(material);
+        saveMaterials();
+
+        // 問題にmaterialIdを追加
+        const questionsWithMaterialId = questions.map(q => ({
+            ...q,
+            materialId: materialId
+        }));
+
+        // 保存
+        updateGeneratingStatus('保存しています...', 90);
+        appState.questions = [...appState.questions, ...questionsWithMaterialId];
+        saveQuestions();
+
+        updateGeneratingStatus('完了!', 100);
+
+        // URL入力欄をクリア
+        document.getElementById('url-input').value = '';
+
+        setTimeout(() => {
+            showScreen('home-screen');
+            initHomeScreen();
+            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+        }, 500);
+
+    } catch (error) {
+        console.error('クイズ生成エラー:', error);
+        alert('クイズの生成に失敗しました: ' + error.message);
+        showScreen('home-screen');
+    }
+}
+
+// URLからテキストを取得
+async function fetchTextFromUrl(url) {
+    // CORSプロキシを使用してWebページを取得
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(proxyUrl);
+    if (!response.ok) {
+        throw new Error('Webページの取得に失敗しました');
+    }
+
+    const html = await response.text();
+
+    // HTMLからテキストを抽出
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // 不要な要素を削除
+    const elementsToRemove = doc.querySelectorAll('script, style, nav, header, footer, aside, iframe, noscript');
+    elementsToRemove.forEach(el => el.remove());
+
+    // メインコンテンツを取得（article, main, または body）
+    const mainContent = doc.querySelector('article') || doc.querySelector('main') || doc.body;
+
+    // テキストを抽出して整形
+    let text = mainContent.innerText || mainContent.textContent;
+
+    // 余分な空白を削除
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // 最大文字数を制限
+    const maxChars = 15000;
+    if (text.length > maxChars) {
+        text = text.slice(0, maxChars);
+    }
+
+    return text;
+}
+
 // GPTでテキストをマークダウン形式に変換
 async function convertTextToMarkdown(text) {
     const maxChars = 12000;
@@ -1941,6 +2052,33 @@ document.getElementById('generate-from-text-btn')?.addEventListener('click', asy
     }
 
     await generateQuizFromText(text, 'テキスト入力');
+});
+
+// URLからクイズ生成
+document.getElementById('generate-from-url-btn')?.addEventListener('click', async function() {
+    const urlInput = document.getElementById('url-input');
+    const url = urlInput.value.trim();
+
+    if (!url) {
+        alert('URLを入力してください');
+        return;
+    }
+
+    // URL形式の検証
+    try {
+        new URL(url);
+    } catch (e) {
+        alert('有効なURLを入力してください');
+        return;
+    }
+
+    // APIキーの確認
+    if (!appState.apiKey) {
+        showApiKeyModal();
+        return;
+    }
+
+    await generateQuizFromUrl(url);
 });
 
 // レポートタブの統計を更新する関数
