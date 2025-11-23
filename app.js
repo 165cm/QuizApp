@@ -237,9 +237,13 @@ document.getElementById('generate-btn').addEventListener('click', async function
 async function generateQuiz(file) {
     showScreen('generating-screen');
 
+    // 画像生成モードの確認
+    const imageGenEnabled = document.getElementById('image-gen-checkbox')?.checked || false;
+    const questionCount = imageGenEnabled ? 5 : 30;
+
     try {
         // PDFテキスト抽出
-        updateGeneratingStatus('PDFを読み込んでいます...', 20);
+        updateGeneratingStatus('PDFを読み込んでいます...', 15);
         const text = await extractTextFromPDF(file);
 
         if (!text || text.trim().length < 100) {
@@ -247,12 +251,17 @@ async function generateQuiz(file) {
         }
 
         // 教材メタデータ生成
-        updateGeneratingStatus('教材情報を分析中...', 35);
+        updateGeneratingStatus('教材情報を分析中...', 30);
         const metadata = await generateMaterialMetadata(text, file.name);
 
         // クイズ生成
-        updateGeneratingStatus('AIがクイズを生成中...', 60);
-        const questions = await generateQuestionsWithAI(text, file.name);
+        updateGeneratingStatus('AIがクイズを生成中...', 45);
+        let questions = await generateQuestionsWithAI(text, file.name, questionCount);
+
+        // 画像生成モードの場合、各問題に画像を生成
+        if (imageGenEnabled) {
+            questions = await generateImagesForQuestions(questions);
+        }
 
         // 教材IDを生成
         const materialId = 'mat_' + Date.now();
@@ -279,7 +288,7 @@ async function generateQuiz(file) {
         }));
 
         // 保存
-        updateGeneratingStatus('保存しています...', 90);
+        updateGeneratingStatus('保存しています...', 95);
         appState.questions = [...appState.questions, ...questionsWithMaterialId];
         saveQuestions();
 
@@ -288,7 +297,8 @@ async function generateQuiz(file) {
         setTimeout(() => {
             showScreen('home-screen');
             initHomeScreen();
-            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+            const imageMsg = imageGenEnabled ? '（画像付き）' : '';
+            alert(`教材「${material.title}」から${questions.length}問のクイズ${imageMsg}を生成しました!`);
         }, 500);
 
     } catch (error) {
@@ -302,18 +312,27 @@ async function generateQuiz(file) {
 async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
     showScreen('generating-screen');
 
+    // 画像生成モードの確認
+    const imageGenEnabled = document.getElementById('image-gen-checkbox')?.checked || false;
+    const questionCount = imageGenEnabled ? 5 : 30;
+
     try {
         // テキストをマークダウン形式に変換
-        updateGeneratingStatus('テキストを整形中...', 20);
+        updateGeneratingStatus('テキストを整形中...', 15);
         const markdownText = await convertTextToMarkdown(rawText);
 
         // 教材メタデータ生成
-        updateGeneratingStatus('教材情報を分析中...', 35);
+        updateGeneratingStatus('教材情報を分析中...', 30);
         const metadata = await generateMaterialMetadata(markdownText, fileName);
 
         // クイズ生成
-        updateGeneratingStatus('AIがクイズを生成中...', 60);
-        const questions = await generateQuestionsWithAI(markdownText, fileName);
+        updateGeneratingStatus('AIがクイズを生成中...', 45);
+        let questions = await generateQuestionsWithAI(markdownText, fileName, questionCount);
+
+        // 画像生成モードの場合、各問題に画像を生成
+        if (imageGenEnabled) {
+            questions = await generateImagesForQuestions(questions);
+        }
 
         // 教材IDを生成
         const materialId = 'mat_' + Date.now();
@@ -340,7 +359,7 @@ async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
         }));
 
         // 保存
-        updateGeneratingStatus('保存しています...', 90);
+        updateGeneratingStatus('保存しています...', 95);
         appState.questions = [...appState.questions, ...questionsWithMaterialId];
         saveQuestions();
 
@@ -352,7 +371,8 @@ async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
         setTimeout(() => {
             showScreen('home-screen');
             initHomeScreen();
-            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+            const imageMsg = imageGenEnabled ? '（画像付き）' : '';
+            alert(`教材「${material.title}」から${questions.length}問のクイズ${imageMsg}を生成しました!`);
         }, 500);
 
     } catch (error) {
@@ -366,6 +386,10 @@ async function generateQuizFromText(rawText, fileName = 'テキスト入力') {
 async function generateQuizFromUrl(url) {
     showScreen('generating-screen');
 
+    // 画像生成モードの確認
+    const imageGenEnabled = document.getElementById('image-gen-checkbox')?.checked || false;
+    const questionCount = imageGenEnabled ? 5 : 30;
+
     try {
         // URLからテキストを取得
         updateGeneratingStatus('Webページを取得中...', 10);
@@ -376,17 +400,22 @@ async function generateQuizFromUrl(url) {
         }
 
         // テキストをマークダウン形式に変換
-        updateGeneratingStatus('テキストを整形中...', 25);
+        updateGeneratingStatus('テキストを整形中...', 20);
         const markdownText = await convertTextToMarkdown(text);
 
         // 教材メタデータ生成
-        updateGeneratingStatus('教材情報を分析中...', 40);
+        updateGeneratingStatus('教材情報を分析中...', 30);
         const hostname = new URL(url).hostname;
         const metadata = await generateMaterialMetadata(markdownText, hostname);
 
         // クイズ生成
-        updateGeneratingStatus('AIがクイズを生成中...', 60);
-        const questions = await generateQuestionsWithAI(markdownText, url);
+        updateGeneratingStatus('AIがクイズを生成中...', 45);
+        let questions = await generateQuestionsWithAI(markdownText, url, questionCount);
+
+        // 画像生成モードの場合、各問題に画像を生成
+        if (imageGenEnabled) {
+            questions = await generateImagesForQuestions(questions);
+        }
 
         // 教材IDを生成
         const materialId = 'mat_' + Date.now();
@@ -413,7 +442,7 @@ async function generateQuizFromUrl(url) {
         }));
 
         // 保存
-        updateGeneratingStatus('保存しています...', 90);
+        updateGeneratingStatus('保存しています...', 95);
         appState.questions = [...appState.questions, ...questionsWithMaterialId];
         saveQuestions();
 
@@ -425,7 +454,8 @@ async function generateQuizFromUrl(url) {
         setTimeout(() => {
             showScreen('home-screen');
             initHomeScreen();
-            alert(`教材「${material.title}」から${questions.length}問のクイズを生成しました!`);
+            const imageMsg = imageGenEnabled ? '（画像付き）' : '';
+            alert(`教材「${material.title}」から${questions.length}問のクイズ${imageMsg}を生成しました!`);
         }, 500);
 
     } catch (error) {
@@ -471,6 +501,113 @@ async function fetchTextFromUrl(url) {
     }
 
     return text;
+}
+
+// 画像生成用のクリエイティブなプロンプトを生成
+async function generateImagePrompt(question, choices, correctAnswer) {
+    const prompt = `あなたはクイズの記憶定着をサポートする画像のプロンプトを生成するエキスパートです。
+
+以下のクイズ問題に関連する画像のプロンプトを生成してください。
+
+【重要なルール】
+1. 答えを直接示唆してはいけません（正解のテキストや選択肢を含めない）
+2. 問題のテーマや概念を象徴的・抽象的に表現する
+3. 記憶に残るインパクトのあるビジュアルにする
+4. シュールレアリスム、メタファー、意外な組み合わせを活用
+5. 感情や驚きを喚起するシーンを描写
+
+【問題】
+${question}
+
+【選択肢】
+${choices.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+【正解】
+${correctAnswer}
+
+上記の問題の「テーマ」「概念」「背景知識」を連想させる、しかし答えは明かさない、記憶に残るユニークな画像のプロンプトを英語で100語以内で生成してください。
+プロンプトのみを出力し、他の説明は不要です。`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${appState.apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 200,
+            temperature: 0.9
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error('画像プロンプト生成に失敗しました');
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+}
+
+// DALL-Eで画像を生成
+async function generateImageWithDALLE(imagePrompt) {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${appState.apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'dall-e-3',
+            prompt: `Create a memorable, artistic illustration: ${imagePrompt}. Style: vibrant colors, surreal elements, visually striking composition. No text in the image.`,
+            n: 1,
+            size: '1024x1024',
+            quality: 'standard'
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || '画像生成に失敗しました');
+    }
+
+    const data = await response.json();
+    return data.data[0].url;
+}
+
+// クイズ問題に画像を生成
+async function generateImagesForQuestions(questions) {
+    const questionsWithImages = [];
+
+    for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        const correctAnswer = q.choices[q.correctIndex];
+
+        try {
+            // プログレス更新
+            const progress = 60 + Math.floor((i / questions.length) * 30);
+            updateGeneratingStatus(`画像を生成中... (${i + 1}/${questions.length})`, progress);
+
+            // 画像プロンプト生成
+            const imagePrompt = await generateImagePrompt(q.question, q.choices, correctAnswer);
+
+            // DALL-Eで画像生成
+            const imageUrl = await generateImageWithDALLE(imagePrompt);
+
+            questionsWithImages.push({
+                ...q,
+                imageUrl: imageUrl,
+                imagePrompt: imagePrompt
+            });
+        } catch (error) {
+            console.error(`画像生成エラー (問題${i + 1}):`, error);
+            // 画像生成に失敗した場合は画像なしで続行
+            questionsWithImages.push(q);
+        }
+    }
+
+    return questionsWithImages;
 }
 
 // GPTでテキストをマークダウン形式に変換
@@ -542,11 +679,11 @@ async function extractTextFromPDF(file) {
     return fullText;
 }
 
-async function generateQuestionsWithAI(text, fileName) {
+async function generateQuestionsWithAI(text, fileName, questionCount = 30) {
     const maxChars = 12000; // GPT-4o-miniのトークン制限を考慮
     const truncatedText = text.slice(0, maxChars);
 
-    const prompt = `以下のテキストから30問の4択クイズを生成してください。
+    const prompt = `以下のテキストから${questionCount}問の4択クイズを生成してください。
 
 【手順1: 学習目的の明確化】
 まず、このテキストから「何を学習すべきか」を分析してください。
@@ -616,7 +753,7 @@ async function generateQuestionsWithAI(text, fileName) {
 ## その他の要件:
 1. まずテキストを分析して、主要な見出し（セクション、章、トピック）を検出
 2. 各見出しセクションから問題を生成し、対応する見出しを記録
-3. **問題数**: 最大30問（学習目的に沿って過不足なく。多ければ良いわけではない）
+3. **問題数**: ${questionCount}問（学習目的に沿って過不足なく。多ければ良いわけではない）
 4. **難易度配分**: 基礎40%、標準40%、応用20%の割合で
 5. 各問題に5つ程度の関連タグを付与
 6. JSON形式で出力
@@ -996,6 +1133,16 @@ function displayQuestion() {
 
     // 質問表示
     document.getElementById('question-text').textContent = question.question;
+
+    // 画像表示
+    const imageContainer = document.getElementById('question-image-container');
+    const imageElement = document.getElementById('question-image');
+    if (question.imageUrl) {
+        imageElement.src = question.imageUrl;
+        imageContainer.style.display = 'block';
+    } else {
+        imageContainer.style.display = 'none';
+    }
 
     // タグ表示
     const tagsContainer = document.getElementById('question-tags');

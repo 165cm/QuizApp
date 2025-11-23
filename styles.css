@@ -1058,6 +1058,85 @@ body {
     line-height: 1.5;
 }
 
+/* 画像生成オプション */
+.image-gen-option {
+    background: linear-gradient(135deg, #f0f9ff 0%, #fef3f2 100%);
+    border: 1px solid #e0e7ff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.image-gen-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.image-gen-toggle input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: #d1d5db;
+    border-radius: 12px;
+    transition: all 0.3s;
+    flex-shrink: 0;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.image-gen-toggle input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+}
+
+.image-gen-toggle input:checked + .toggle-slider::after {
+    transform: translateX(20px);
+}
+
+.toggle-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.image-gen-hint {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 8px 0 0 56px;
+    line-height: 1.4;
+}
+
+/* クイズ画像表示 */
+.quiz-image-container {
+    margin-bottom: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.quiz-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
 /* タグ統計 - コンパクト */
 .tag-stats-section-compact {
     background: white;
