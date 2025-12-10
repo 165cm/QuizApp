@@ -1,4 +1,298 @@
 // ========================================
+// Firebase設定
+// ========================================
+// 注意: 本番環境では環境変数から読み込むことを推奨
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Firebase初期化
+let firebaseApp = null;
+let auth = null;
+let db = null;
+let currentUser = null;
+
+function initFirebase() {
+    // Firebase設定が未設定の場合はスキップ
+    if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+        console.log('Firebase: 設定が未完了です。Googleログイン機能を使用するには、firebaseConfigを設定してください。');
+        // ログインボタンを非表示にする
+        const loginBtn = document.getElementById('login-btn');
+        if (loginBtn) {
+            loginBtn.style.display = 'none';
+        }
+        return;
+    }
+
+    try {
+        firebaseApp = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore();
+
+        // 認証状態の監視
+        auth.onAuthStateChanged(handleAuthStateChanged);
+        console.log('Firebase: 初期化完了');
+    } catch (error) {
+        console.error('Firebase初期化エラー:', error);
+    }
+}
+
+// ========================================
+// 認証関連
+// ========================================
+async function handleAuthStateChanged(user) {
+    currentUser = user;
+    const loginBtn = document.getElementById('login-btn');
+    const userMenu = document.getElementById('user-menu');
+
+    if (user) {
+        // ログイン状態
+        if (loginBtn) loginBtn.classList.add('hidden');
+        if (userMenu) {
+            userMenu.classList.remove('hidden');
+            document.getElementById('user-avatar').src = user.photoURL || 'https://via.placeholder.com/36';
+            document.getElementById('user-name').textContent = user.displayName || 'ユーザー';
+        }
+
+        // クラウドからデータを同期
+        await syncFromCloud();
+    } else {
+        // ログアウト状態
+        if (loginBtn) loginBtn.classList.remove('hidden');
+        if (userMenu) userMenu.classList.add('hidden');
+    }
+}
+
+async function signInWithGoogle() {
+    if (!auth) {
+        alert('Firebase設定が完了していません。\n\nGoogleログインを使用するには、app.js内のfirebaseConfigを設定してください。');
+        return;
+    }
+
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        // モバイル対応: ポップアップよりリダイレクトが安定
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            await auth.signInWithRedirect(provider);
+        } else {
+            await auth.signInWithPopup(provider);
+        }
+    } catch (error) {
+        console.error('ログインエラー:', error);
+        if (error.code === 'auth/popup-blocked') {
+            // ポップアップがブロックされた場合はリダイレクトで再試行
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await auth.signInWithRedirect(provider);
+        } else {
+            alert('ログインに失敗しました: ' + error.message);
+        }
+    }
+}
+
+async function signOut() {
+    if (!auth) return;
+
+    try {
+        await auth.signOut();
+        showSyncIndicator('ログアウトしました', 'success');
+    } catch (error) {
+        console.error('ログアウトエラー:', error);
+        alert('ログアウトに失敗しました');
+    }
+}
+
+// ========================================
+// データ同期関連
+// ========================================
+function updateSyncStatus(status, isError = false) {
+    const syncStatusEl = document.getElementById('sync-status');
+    if (syncStatusEl) {
+        syncStatusEl.textContent = status;
+        syncStatusEl.className = 'sync-status' + (isError ? ' error' : '');
+    }
+}
+
+function showSyncIndicator(message, type = 'info') {
+    // 既存のインジケーターを削除
+    const existing = document.querySelector('.sync-indicator');
+    if (existing) existing.remove();
+
+    const indicator = document.createElement('div');
+    indicator.className = `sync-indicator ${type}`;
+    indicator.innerHTML = type === 'info'
+        ? `<div class="spinner-small"></div><span>${message}</span>`
+        : `<span>${message}</span>`;
+    document.body.appendChild(indicator);
+
+    // 3秒後に自動削除
+    setTimeout(() => {
+        indicator.remove();
+    }, 3000);
+}
+
+async function syncToCloud() {
+    if (!currentUser || !db) return;
+
+    try {
+        updateSyncStatus('同期中...');
+        showSyncIndicator('クラウドに保存中...', 'info');
+
+        const userDocRef = db.collection('users').doc(currentUser.uid);
+
+        // データを準備
+        const syncData = {
+            questions: appState.questions,
+            materials: appState.materials,
+            userStats: appState.userStats,
+            apiKey: appState.apiKey, // 暗号化推奨だが、まずはシンプルに
+            lastSynced: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: new Date().toISOString()
+        };
+
+        await userDocRef.set(syncData, { merge: true });
+
+        updateSyncStatus('同期完了');
+        showSyncIndicator('クラウドに保存しました', 'success');
+        console.log('クラウド同期完了');
+    } catch (error) {
+        console.error('同期エラー:', error);
+        updateSyncStatus('同期失敗', true);
+        showSyncIndicator('同期に失敗しました', 'error');
+    }
+}
+
+async function syncFromCloud() {
+    if (!currentUser || !db) return;
+
+    try {
+        updateSyncStatus('データを取得中...');
+        showSyncIndicator('クラウドからデータを取得中...', 'info');
+
+        const userDocRef = db.collection('users').doc(currentUser.uid);
+        const doc = await userDocRef.get();
+
+        if (doc.exists) {
+            const cloudData = doc.data();
+
+            // ローカルとクラウドのデータをマージ
+            const mergedData = mergeData(cloudData);
+
+            // appStateを更新
+            appState.questions = mergedData.questions;
+            appState.materials = mergedData.materials;
+            appState.userStats = mergedData.userStats;
+            if (cloudData.apiKey) {
+                appState.apiKey = cloudData.apiKey;
+            }
+
+            // LocalStorageにも保存
+            saveQuestions();
+            saveMaterials();
+            saveUserStats();
+            if (cloudData.apiKey) {
+                localStorage.setItem('openai_api_key', cloudData.apiKey);
+            }
+
+            // UIを更新
+            initHomeScreen();
+
+            updateSyncStatus('同期完了');
+            showSyncIndicator('データを同期しました', 'success');
+            console.log('クラウドからデータ取得完了');
+        } else {
+            // クラウドにデータがない場合、ローカルデータをアップロード
+            console.log('クラウドにデータがありません。ローカルデータをアップロードします。');
+            await syncToCloud();
+        }
+    } catch (error) {
+        console.error('データ取得エラー:', error);
+        updateSyncStatus('取得失敗', true);
+        showSyncIndicator('データの取得に失敗しました', 'error');
+    }
+}
+
+function mergeData(cloudData) {
+    // クラウドデータとローカルデータをマージ
+    // 基本戦略: IDベースで重複を排除し、より新しいデータを優先
+
+    const localQuestions = appState.questions || [];
+    const cloudQuestions = cloudData.questions || [];
+    const localMaterials = appState.materials || [];
+    const cloudMaterials = cloudData.materials || [];
+
+    // 問題のマージ（IDで重複排除、lastReviewedが新しい方を優先）
+    const questionMap = new Map();
+    [...localQuestions, ...cloudQuestions].forEach(q => {
+        const existing = questionMap.get(q.id);
+        if (!existing) {
+            questionMap.set(q.id, q);
+        } else {
+            // lastReviewedが新しい方を優先
+            const existingDate = existing.lastReviewed ? new Date(existing.lastReviewed) : new Date(0);
+            const newDate = q.lastReviewed ? new Date(q.lastReviewed) : new Date(0);
+            if (newDate > existingDate) {
+                questionMap.set(q.id, q);
+            }
+        }
+    });
+
+    // 教材のマージ（IDで重複排除、uploadDateが新しい方を優先）
+    const materialMap = new Map();
+    [...localMaterials, ...cloudMaterials].forEach(m => {
+        const existing = materialMap.get(m.id);
+        if (!existing) {
+            materialMap.set(m.id, m);
+        } else {
+            // uploadDateが新しい方を優先
+            const existingDate = new Date(existing.uploadDate);
+            const newDate = new Date(m.uploadDate);
+            if (newDate > existingDate) {
+                materialMap.set(m.id, m);
+            }
+        }
+    });
+
+    // 統計のマージ（数値が大きい方を優先）
+    const localStats = appState.userStats || {};
+    const cloudStats = cloudData.userStats || {};
+    const mergedStats = {
+        totalAnswered: Math.max(localStats.totalAnswered || 0, cloudStats.totalAnswered || 0),
+        correctAnswers: Math.max(localStats.correctAnswers || 0, cloudStats.correctAnswers || 0),
+        lastStudyDate: [localStats.lastStudyDate, cloudStats.lastStudyDate]
+            .filter(Boolean)
+            .sort((a, b) => new Date(b) - new Date(a))[0] || null,
+        streak: Math.max(localStats.streak || 0, cloudStats.streak || 0)
+    };
+
+    return {
+        questions: Array.from(questionMap.values()),
+        materials: Array.from(materialMap.values()),
+        userStats: mergedStats
+    };
+}
+
+// データ変更時に自動同期（デバウンス付き）
+let syncTimeout = null;
+function scheduleSync() {
+    if (!currentUser) return;
+
+    // 3秒後に同期（連続変更をまとめる）
+    if (syncTimeout) {
+        clearTimeout(syncTimeout);
+    }
+    syncTimeout = setTimeout(() => {
+        syncToCloud();
+    }, 3000);
+}
+
+// ========================================
 // グローバル変数
 // ========================================
 let appState = {
@@ -1502,14 +1796,17 @@ function updateQuestionStats(question, isCorrect) {
 // ========================================
 function saveQuestions() {
     localStorage.setItem('questions', JSON.stringify(appState.questions));
+    scheduleSync(); // クラウド同期をスケジュール
 }
 
 function saveMaterials() {
     localStorage.setItem('materials', JSON.stringify(appState.materials));
+    scheduleSync(); // クラウド同期をスケジュール
 }
 
 function saveUserStats() {
     localStorage.setItem('user_stats', JSON.stringify(appState.userStats));
+    scheduleSync(); // クラウド同期をスケジュール
 }
 
 // ========================================
@@ -1529,6 +1826,7 @@ document.getElementById('save-api-key').addEventListener('click', () => {
     if (key) {
         appState.apiKey = key;
         localStorage.setItem('openai_api_key', key);
+        scheduleSync(); // APIキーもクラウド同期
         document.getElementById('api-key-modal').classList.add('hidden');
 
         // 生成ボタンがあればクリック
@@ -2594,6 +2892,20 @@ function showSharedQuizLanding(materialId, shareData) {
 // 初期化
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Firebase初期化
+    initFirebase();
+
+    // ログイン/ログアウトボタンのイベントリスナー
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', signInWithGoogle);
+    }
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', signOut);
+    }
+
     // 共有URLのチェック（最初に実行）
     // 認定証URLを優先してチェック
     const isCertificate = checkForSharedCertificate();

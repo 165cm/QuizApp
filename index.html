@@ -8,6 +8,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/davidshimjs-qrcodejs@0.0.2/qrcode.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div id="app">
@@ -142,9 +146,25 @@
             <div class="container">
                 <div class="header-compact">
                     <h1 class="logo-compact">📚 QuizMaster</h1>
-                    <div class="streak-badge-compact">
-                        <span class="fire-icon">🔥</span>
-                        <span id="streak-count">0</span>
+                    <div class="header-right">
+                        <div class="streak-badge-compact">
+                            <span class="fire-icon">🔥</span>
+                            <span id="streak-count">0</span>
+                        </div>
+                        <!-- ログインボタン -->
+                        <button id="login-btn" class="btn-login">
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="google-icon">
+                            <span>ログイン</span>
+                        </button>
+                        <!-- ユーザーメニュー（ログイン後表示） -->
+                        <div id="user-menu" class="user-menu hidden">
+                            <img id="user-avatar" class="user-avatar" src="" alt="User">
+                            <div class="user-dropdown">
+                                <div id="user-name" class="user-name"></div>
+                                <div id="sync-status" class="sync-status">同期中...</div>
+                                <button id="logout-btn" class="btn-logout">ログアウト</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
