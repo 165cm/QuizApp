@@ -62,8 +62,30 @@ function displayQuestion() {
     // Image
     const imgContainer = document.getElementById('question-image-container');
     const img = document.getElementById('question-image');
-    if (q.imageUrl) {
+
+    // Reset
+    imgContainer.style.backgroundImage = 'none';
+    imgContainer.classList.remove('grid-mode');
+    img.style.display = 'none';
+
+    if (q.imageUrl && q.imageGridIndex !== undefined) {
+        // Grid View (3x3 on 16:9 image)
+        imgContainer.style.display = 'block';
+        imgContainer.classList.add('grid-mode');
+        imgContainer.style.backgroundImage = `url(${q.imageUrl})`;
+
+        // Calculate position for 3x3 grid
+        const col = q.imageGridIndex % 3;
+        const row = Math.floor(q.imageGridIndex / 3);
+        const xPos = col * 50; // 0, 50, 100
+        const yPos = row * 50; // 0, 50, 100
+
+        imgContainer.style.backgroundPosition = `${xPos}% ${yPos}%`;
+        imgContainer.style.backgroundSize = '315% 315%'; // Safe margin (zoom to crop edges)
+    } else if (q.imageUrl) {
+        // Standard single image
         img.src = q.imageUrl;
+        img.style.display = 'block';
         imgContainer.style.display = 'block';
     } else {
         imgContainer.style.display = 'none';

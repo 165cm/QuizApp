@@ -161,6 +161,9 @@
                         <div class="header-compact">
                             <h1 class="logo-compact">📚 QuizMaster</h1>
                             <div class="header-right">
+                                <button id="settings-btn" class="btn-icon-text" aria-label="設定">
+                                    <span style="font-size: 1.2rem;">⚙️</span>
+                                </button>
                                 <!-- Login Button (shown when logged out) -->
                                 <button id="login-btn" class="btn-google-login">
                                     <svg width="18" height="18" viewBox="0 0 24 24">
@@ -263,9 +266,9 @@
                                     <label class="image-gen-toggle">
                                         <input type="checkbox" id="image-gen-checkbox">
                                         <span class="toggle-slider"></span>
-                                        <span class="toggle-label">🎨 画像付きクイズ（5問限定）</span>
+                                        <span class="toggle-label">🎨 画像付きクイズ</span>
                                     </label>
-                                    <p class="image-gen-hint">各問題に記憶定着をサポートするユニークな画像を生成します</p>
+                                    <p class="image-gen-hint">各問題に記憶定着をサポートするユニークな画像を生成します（コスト削減モードON）</p>
                                 </div>
 
                                 <!-- テキストモード -->
@@ -330,19 +333,7 @@
                                 </div>
                             </div>
 
-                            <!-- データリセットセクション -->
-                            <div class="data-reset-section">
-                                <h3 class="section-title-compact">データ管理</h3>
-                                <div class="data-reset-card">
-                                    <p class="data-reset-description">
-                                        すべての教材、問題、学習履歴を削除して、アプリを初期状態に戻します。<br>
-                                        <strong>この操作は取り消せません。</strong>
-                                    </p>
-                                    <button id="reset-all-data-btn" class="btn-danger">
-                                        🗑️ すべてのデータをリセット
-                                    </button>
-                                </div>
-                            </div>
+                            <!-- データリセットセクションは設定画面に移動しました -->
                         </div>
                     </div>
                 </div>
@@ -366,7 +357,14 @@
                             <div class="view-switcher">
                                 <button id="view-list-btn" class="view-btn active" data-view="list">📋 リスト</button>
                                 <button id="view-shared-btn" class="view-btn" data-view="shared">📤 共有済み</button>
+                                <button id="toggle-selection-btn" class="view-btn">✅ 選択</button>
                             </div>
+                        </div>
+
+                        <!-- Action Bar for Selected Items -->
+                        <div id="selection-action-bar" class="selection-action-bar hidden">
+                            <span id="selected-count-label">0件選択中</span>
+                            <button id="delete-selected-btn" class="btn-danger-compact">🗑️ 選択した教材を削除</button>
                         </div>
 
                         <div id="references-list" class="materials-grid">
@@ -468,13 +466,22 @@
                 </div>
 
                 <!-- 生成中画面 -->
-                <div id="generating-screen" class="screen">
+                <!-- 生成中画面 -->
+                <div id="generating-screen" class="screen hidden">
                     <div class="container center">
                         <div class="spinner"></div>
                         <h2>クイズを生成中...</h2>
                         <p id="generating-status">PDFを読み込んでいます...</p>
                         <div class="progress-bar">
                             <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+
+                        <!-- Mini Review Section -->
+                        <div id="mini-review-container" class="mini-review-container hidden">
+                            <p class="mini-review-label">待っている間に復習しよう！</p>
+                            <div id="mini-review-card" class="mini-review-card">
+                                <!-- Dynamic Question Content -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -585,57 +592,183 @@
                 </div>
             </div>
 
-            <!-- APIキー入力モーダル -->
-            <div id="api-key-modal" class="modal hidden">
-                <div class="modal-content">
-                    <h2>OpenAI APIキー</h2>
-                    <p>クイズを生成するにはOpenAI APIキーが必要です。</p>
-                    <a href="https://platform.openai.com/api-keys" target="_blank" class="link">APIキーを取得する</a>
-                    <input type="password" id="api-key-input" class="input" placeholder="sk-...">
-                    <div class="modal-actions">
-                        <button id="cancel-api-key" class="btn btn-secondary">キャンセル</button>
-                        <button id="save-api-key" class="btn btn-primary">保存</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 共有モーダル -->
-            <div id="share-modal" class="modal hidden">
-                <div class="modal-content">
+            <!-- 設定モーダル (Unified Settings) -->
+            <div id="settings-modal" class="modal hidden">
+                <div class="modal-content settings-modal-content">
                     <div class="modal-header">
-                        <h2>この教材をシェア</h2>
-                        <button id="close-share-modal" class="btn-secondary btn-icon">
-                            <span style="font-size: 1.2rem;">✕</span>
-                        </button>
+                        <h2>⚙️ 設定</h2>
+                        <button id="close-settings-modal" class="btn-close">✕</button>
                     </div>
-                    <div class="share-options">
-                        <button id="copy-url-btn" class="share-option-btn">
-                            <span class="share-icon">🔗</span>
-                            <div class="share-option-text">
-                                <div class="share-option-title">URLをコピー</div>
-                                <div class="share-option-desc">クリップボードにコピーして共有</div>
-                            </div>
-                        </button>
-                        <button id="show-qr-btn" class="share-option-btn">
-                            <span class="share-icon">📱</span>
-                            <div class="share-option-text">
-                                <div class="share-option-title">QRコードを表示</div>
-                                <div class="share-option-desc">スマホでスキャンして共有</div>
-                            </div>
-                        </button>
+
+                    <div class="settings-tabs">
+                        <button class="settings-tab-btn active" data-tab="general">一般 / API</button>
+                        <button class="settings-tab-btn" data-tab="prompts">プロンプト編集</button>
+                        <button class="settings-tab-btn" data-tab="data">データ管理</button>
                     </div>
-                    <div id="share-result" class="share-result hidden">
-                        <div id="share-success" class="share-message hidden">
-                            <span class="success-icon">✓</span>
-                            <span>URLをコピーしました！</span>
+
+                    <!-- General Tab (API Key) -->
+                    <div id="settings-tab-general" class="settings-tab-content active">
+                        <div class="setting-group">
+                            <label class="setting-label">OpenAI APIキー</label>
+                            <p class="setting-desc">クイズ生成に使用するAPIキーを設定します。</p>
+                            <div class="api-key-input-container">
+                                <input type="password" id="settings-api-key-input" class="input" placeholder="sk-...">
+                                <button id="toggle-api-key-visibility" class="btn-icon">👁️</button>
+                            </div>
                         </div>
-                        <div id="qr-code-container" class="qr-container hidden">
-                            <div id="qr-code"></div>
-                            <p class="qr-hint">QRコードをスキャンしてください</p>
+
+                        <!-- Google API Key -->
+                        <div class="setting-group">
+                            <label class="setting-label">Google APIキー (Nano Banana Pro)</label>
+                            <p class="setting-desc">Nano Banana Pro (Imagen 3) 用のAPIキー。</p>
+                            <div class="api-key-input-container">
+                                <input type="password" id="settings-google-api-key-input" class="input"
+                                    placeholder="AI...">
+                                <button id="toggle-google-api-key-visibility" class="btn-icon">👁️</button>
+                            </div>
                         </div>
+
+                        <!-- Image Model Selection -->
+                        <div class="setting-group">
+                            <label class="setting-label">画像生成モデル</label>
+                            <div class="static-value">Google Nano Banana Pro (推奨)</div>
+                            <!-- DALL-E 3 removed as per request -->
+                        </div>
+
+                        <div class="setting-actions">
+                            <button id="save-general-settings-btn" class="btn btn-primary btn-full-width">設定を保存</button>
+                        </div>
+                        <p class="api-key-status" id="api-key-status-msg"></p>
+                    </div>
+                </div>
+
+                <!-- Prompts Tab (Customization) -->
+                <div id="settings-tab-prompts" class="settings-tab-content">
+                    <div class="alert-box info">
+                        <p>クイズ生成の挙動をカスタマイズできます。<br>
+                            プロンプトのフォーマットは自動で最適化され、以下の設定が反映されます。</p>
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">対象レベル・読者</label>
+                        <p class="setting-desc">誰に向けたクイズにするかを指定します</p>
+                        <input type="text" id="setting-target-level" class="input"
+                            placeholder="例: 中学生、TOEIC 600点、ビジネス初級、5歳児" style="width: 100%;">
+                    </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">追加の指示（こだわり）</label>
+                        <p class="setting-desc">雰囲気や文体、特に重視することなどを自由に指示できます</p>
+                        <textarea id="setting-custom-instructions" class="prompt-textarea"
+                            placeholder="例: 関西弁で、スパルタに、ユーモアを交えて" style="min-height: 100px;"></textarea>
+                    </div>
+
+                    <div class="setting-actions-footer">
+                        <button id="reset-prompts-btn" class="btn btn-secondary">リセット</button>
+                        <button id="save-prompts-btn" class="btn btn-primary">設定を保存</button>
+                    </div>
+                </div>
+
+                <!-- Data Management Tab -->
+                <div id="settings-tab-data" class="settings-tab-content">
+                    <div class="setting-group danger-zone">
+                        <h3>🗑️ データの全消去</h3>
+                        <p>学習履歴、保存した問題、設定をすべて削除して初期状態に戻します。</p>
+                        <button id="settings-reset-data-btn" class="btn btn-danger">すべてのデータをリセット</button>
                     </div>
                 </div>
             </div>
+    </div>
+
+    <!-- 共有モーダル -->
+    <div id="share-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>この教材をシェア</h2>
+                <button id="close-share-modal" class="btn-secondary btn-icon">
+                    <span style="font-size: 1.2rem;">✕</span>
+                </button>
+            </div>
+            <div class="share-options">
+                <button id="copy-url-btn" class="share-option-btn">
+                    <span class="share-icon">🔗</span>
+                    <div class="share-option-text">
+                        <div class="share-option-title">URLをコピー</div>
+                        <div class="share-option-desc">クリップボードにコピーして共有</div>
+                    </div>
+                </button>
+                <button id="show-qr-btn" class="share-option-btn">
+                    <span class="share-icon">📱</span>
+                    <div class="share-option-text">
+                        <div class="share-option-title">QRコードを表示</div>
+                        <div class="share-option-desc">スマホでスキャンして共有</div>
+                    </div>
+                </button>
+            </div>
+            <div id="share-result" class="share-result hidden">
+                <div id="share-success" class="share-message hidden">
+                    <span class="success-icon">✓</span>
+                    <span>URLをコピーしました！</span>
+                </div>
+                <div id="qr-code-container" class="qr-container hidden">
+                    <div id="qr-code"></div>
+                    <p class="qr-hint">QRコードをスキャンしてください</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Generation Settings Modal -->
+    <div id="generation-settings-modal" class="modal hidden">
+        <div class="modal-content gen-settings-modal-content">
+            <div class="modal-header">
+                <h2>⚙️ 生成オプション</h2>
+                <button id="close-gen-settings-modal" class="btn-close">✕</button>
+            </div>
+            <div class="setting-group">
+                <label class="setting-label">ターゲットレベル</label>
+                <div id="level-buttons" class="level-button-group">
+                    <button class="level-btn" data-value="初級">🌱 初級</button>
+                    <button class="level-btn active" data-value="一般">📚 一般</button>
+                    <button class="level-btn" data-value="中級">🎯 中級</button>
+                    <button class="level-btn" data-value="上級">🔬 上級</button>
+                    <button class="level-btn" data-value="子供向け">🧒 子供向け</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <label class="setting-label">カスタム指示 (任意)</label>
+                <textarea id="gen-setting-instructions" class="gen-textarea" rows="3"
+                    placeholder="例: 受験勉強用に重要な年号を中心に作ってください..."></textarea>
+            </div>
+            <div class="setting-group">
+                <label class="setting-label">出力言語</label>
+                <div id="lang-buttons" class="level-button-group">
+                    <button class="level-btn active" data-value="日本語">🇯🇵 日本語</button>
+                    <button class="level-btn" data-value="English">🇺🇸 English</button>
+                    <button class="level-btn" data-value="auto">🔄 ソースと同じ</button>
+                </div>
+            </div>
+            <div class="setting-actions">
+                <button id="confirm-generate-btn" class="btn btn-primary btn-full-width">🚀 クイズを生成する</button>
+            </div>
+        </div>
+    </div>
+    <div id="quiz-preview-modal" class="modal hidden">
+        <div class="modal-content preview-modal-content">
+            <div class="modal-header">
+                <h2>🎉 クイズ生成完了！</h2>
+                <button id="close-preview-modal" class="btn-close">✕</button>
+            </div>
+            <h3 id="preview-title" class="preview-title"></h3>
+            <div id="preview-grid" class="preview-grid">
+                <!-- Preview cards will be inserted here -->
+            </div>
+            <div class="preview-actions">
+                <button id="regenerate-images-btn" class="btn btn-secondary">🔄 画像を再生成</button>
+                <button id="close-preview-btn" class="btn btn-primary">✓ 完了</button>
+            </div>
+        </div>
     </div>
 
     <script>

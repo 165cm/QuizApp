@@ -1,14 +1,33 @@
 import { appState } from './state.js';
-import { saveMaterials, saveQuestions } from './storage.js';
+import { saveMaterials, saveQuestions, deleteMaterialFromCloud } from './storage.js';
 import { showScreen } from './ui.js';
 import { shuffleArray } from './utils.js';
 
 let filteredMaterials = [];
 let currentView = 'list';
 
+let isSelectionMode = false;
+let selectedMaterialIds = new Set();
+
 export function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
     container.innerHTML = '';
+
+    // Update selection mode UI
+    const selectBtn = document.getElementById('toggle-selection-btn');
+    const actionBar = document.getElementById('selection-action-bar');
+
+    // Add listener if not exists (check by ensuring we don't add multiple times, or just re-add)
+    // Actually initLibrary adds listeners. We just update UI state here.
+    if (selectBtn) {
+        selectBtn.classList.toggle('active', isSelectionMode);
+        selectBtn.textContent = isSelectionMode ? '❌ キャンセル' : '✅ 選択';
+    }
+    if (actionBar) {
+        if (isSelectionMode) actionBar.classList.remove('hidden');
+        else actionBar.classList.add('hidden');
+        updateSelectionCount();
+    }
 
     if (appState.materials.length === 0) {
         container.innerHTML = '<div class="empty-message">まだ教材が登録されていません。<br>PDFをアップロードしてクイズを生成してください。</div>';
@@ -18,20 +37,17 @@ export function showMaterialsLibrary() {
 
     filteredMaterials = applyFiltersAndSort();
 
+    // Filter shared if needed
     if (currentView === 'shared') {
         filteredMaterials = filteredMaterials.filter(m => m.isShared);
-        if (filteredMaterials.length === 0) {
-            container.innerHTML = '<div class="empty-message">まだ共有された教材がありません。</div>';
-            showScreen('references-screen');
-            return;
-        }
     } else {
         filteredMaterials = filteredMaterials.filter(m => !m.isShared);
-        if (filteredMaterials.length === 0) {
-            container.innerHTML = '<div class="empty-message">まだ教材が登録されていません。<br>PDFをアップロードしてクイズを生成してください。</div>';
-            showScreen('references-screen');
-            return;
-        }
+    }
+
+    if (filteredMaterials.length === 0) {
+        container.innerHTML = '<div class="empty-message">表示する教材がありません。</div>';
+        showScreen('references-screen');
+        return;
     }
 
     container.className = 'materials-list';
@@ -46,6 +62,13 @@ export function showMaterialsLibrary() {
 function createMaterialListItem(material) {
     const item = document.createElement('div');
     item.className = 'material-list-item';
+    if (isSelectionMode) {
+        item.classList.add('selection-mode');
+        if (selectedMaterialIds.has(material.id)) {
+            item.classList.add('selected');
+        }
+    }
+
     const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP');
     const questions = appState.questions.filter(q => q.materialId === material.id);
     const questionCount = questions.length;
@@ -53,22 +76,93 @@ function createMaterialListItem(material) {
     const correctCount = answeredQuestions.filter(q => q.reviewCount > 0).length;
     const accuracy = answeredQuestions.length > 0 ? Math.round((correctCount / answeredQuestions.length) * 100) : 0;
 
+    // Checkbox HTML
+    const checkboxHtml = isSelectionMode ?
+        `<div class="material-checkbox-container">
+            <input type="checkbox" class="material-checkbox" ${selectedMaterialIds.has(material.id) ? 'checked' : ''}>
+         </div>` : '';
+
     item.innerHTML = `
-        <div class="material-list-main">
-            <div class="material-list-title">${material.title}</div>
-            <div class="material-list-date">${dateStr}</div>
-        </div>
-        <div class="material-list-stats">
-            <span class="list-stat-item">📝 ${questionCount}問</span>
-            <span class="list-stat-item">📊 ${accuracy}%</span>
+        ${checkboxHtml}
+        <div class="material-list-Main-Wrapper">
+            <div class="material-list-main">
+                <div class="material-list-title">${material.title}</div>
+                <div class="material-list-date">${dateStr}</div>
+            </div>
+            <div class="material-list-stats">
+                <span class="list-stat-item">📝 ${questionCount}問</span>
+                <span class="list-stat-item">📊 ${accuracy}%</span>
+            </div>
         </div>
     `;
 
-    item.addEventListener('click', () => {
-        showMaterialDetail(material.id);
+    item.addEventListener('click', (e) => {
+        if (isSelectionMode) {
+            // Toggle selection
+            const checkbox = item.querySelector('.material-checkbox');
+            if (selectedMaterialIds.has(material.id)) {
+                selectedMaterialIds.delete(material.id);
+                item.classList.remove('selected');
+                if (checkbox) checkbox.checked = false;
+            } else {
+                selectedMaterialIds.add(material.id);
+                item.classList.add('selected');
+                if (checkbox) checkbox.checked = true;
+            }
+            updateSelectionCount();
+        } else {
+            showMaterialDetail(material.id);
+        }
     });
 
+    // Also handle checkbox click specifically to avoid double toggle if bubble logic fails?
+    // Actually the click on item covers it. But checkbox click might propagate.
+    const checkbox = item.querySelector('.material-checkbox');
+    if (checkbox) {
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation(); // Stop propagation to item click
+            if (checkbox.checked) {
+                selectedMaterialIds.add(material.id);
+                item.classList.add('selected');
+            } else {
+                selectedMaterialIds.delete(material.id);
+                item.classList.remove('selected');
+            }
+            updateSelectionCount();
+        });
+    }
+
     return item;
+}
+
+function updateSelectionCount() {
+    const label = document.getElementById('selected-count-label');
+    if (label) label.textContent = `${selectedMaterialIds.size}件選択中`;
+}
+
+export function toggleSelectionMode() {
+    isSelectionMode = !isSelectionMode;
+    selectedMaterialIds.clear(); // Clear on toggle? Usually clear when entering or exiting not sure. User preference. Let's clear when select mode starts/ends.
+    showMaterialsLibrary();
+}
+
+export function deleteSelectedMaterials() {
+    if (selectedMaterialIds.size === 0) return;
+
+    if (!confirm(`選択した ${selectedMaterialIds.size} 件の教材を削除しますか？\n\nこの操作は取り消せません。`)) return;
+
+    // Delete from Cloud for each selected material
+    selectedMaterialIds.forEach(id => deleteMaterialFromCloud(id));
+
+    appState.materials = appState.materials.filter(m => !selectedMaterialIds.has(m.id));
+    saveMaterials();
+    appState.questions = appState.questions.filter(q => !selectedMaterialIds.has(q.materialId));
+    saveQuestions();
+
+    selectedMaterialIds.clear();
+    isSelectionMode = false; // Exit mode after delete
+    showMaterialsLibrary();
+    alert('削除しました');
 }
 
 function applyFiltersAndSort() {
@@ -95,6 +189,8 @@ export function deleteMaterial(materialId) {
     if (!material) return;
     const questionCount = appState.questions.filter(q => q.materialId === materialId).length;
     if (!confirm(`教材「${material.title}」とその問題${questionCount}問を削除しますか？\n\nこの操作は取り消せません。`)) return;
+
+    deleteMaterialFromCloud(materialId);
 
     appState.materials = appState.materials.filter(m => m.id !== materialId);
     saveMaterials();
@@ -246,12 +342,19 @@ export function initLibrary() {
 
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
+            if (!e.target.dataset.view) return; // Skip buttons without view data (like selection toggle)
             currentView = e.target.dataset.view;
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.view-btn').forEach(b => {
+                if (b.dataset.view) b.classList.remove('active');
+            });
             e.target.classList.add('active');
             showMaterialsLibrary();
         });
     });
+
+    // Selection Mode Listeners
+    document.getElementById('toggle-selection-btn')?.addEventListener('click', toggleSelectionMode);
+    document.getElementById('delete-selected-btn')?.addEventListener('click', deleteSelectedMaterials);
 
     // Tab switching in detail view
     document.querySelectorAll('.tab-btn').forEach(btn => {

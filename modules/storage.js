@@ -1,5 +1,6 @@
 import { appState } from './state.js';
 import { supabase } from './supabase.js';
+import { DEFAULT_PROMPTS } from './default_prompts.js';
 
 // Load data from Storage or Supabase
 export async function loadData() {
@@ -16,7 +17,16 @@ export async function loadData() {
     appState.questions = localQuestions;
     appState.materials = localMaterials;
     appState.userStats = localStats;
+    appState.questions = localQuestions;
+    appState.materials = localMaterials;
+    appState.userStats = localStats;
     appState.apiKey = localStorage.getItem('openai_api_key') || '';
+
+    // Load quiz settings (customizations)
+    const localSettings = JSON.parse(localStorage.getItem('quiz_settings') || 'null');
+    if (localSettings) {
+        appState.quizSettings = localSettings;
+    }
 
     // 2. If logged in, fetch latest from Supabase and merge
     if (appState.currentUser) {
@@ -52,11 +62,18 @@ export async function syncWithSupabase() {
             appState.userStats = mergedStats;
             localStorage.setItem('user_stats', JSON.stringify(appState.userStats));
 
-            // Push merged stats back to server
+            // Merge Settings (Quiz Customization)
+            if (profile.settings && profile.settings.quizSettings) {
+                appState.quizSettings = profile.settings.quizSettings;
+                localStorage.setItem('quiz_settings', JSON.stringify(appState.quizSettings));
+            }
+
+            // Push merged stats and settings back to server
             await supabase.from('profiles').update({
                 total_answered: mergedStats.totalAnswered,
                 correct_answers: mergedStats.correctAnswers,
                 streak: mergedStats.streak,
+                settings: { quizSettings: appState.quizSettings },
                 updated_at: new Date().toISOString()
             }).eq('id', userId);
         } else {
@@ -69,7 +86,8 @@ export async function syncWithSupabase() {
                 total_answered: appState.userStats.totalAnswered,
                 correct_answers: appState.userStats.correctAnswers,
                 last_study_date: appState.userStats.lastStudyDate,
-                streak: appState.userStats.streak
+                streak: appState.userStats.streak,
+                settings: { quizSettings: appState.quizSettings }
             });
         }
 
@@ -158,6 +176,15 @@ export async function saveQuestions() {
 export async function saveQuestionToCloud(question) {
     if (!appState.currentUser) return;
 
+    // Skip legacy IDs (non-UUID format) to prevent FK errors
+    const isUUID = (id) => typeof id === 'string' && id.includes('-');
+    if (!isUUID(String(question.id))) {
+        return; // Silently skip legacy format
+    }
+    if (question.materialId && !isUUID(String(question.materialId))) {
+        return; // Silently skip legacy format
+    }
+
     // Map correctIndex (number) to correct_answer (string) if needed
     let correctAnswer = question.correctAnswer;
     if (correctAnswer === undefined || correctAnswer === null) {
@@ -179,11 +206,13 @@ export async function saveQuestionToCloud(question) {
         explanation: question.explanation || '',
         review_count: question.reviewCount || 0,
         last_reviewed: question.lastReviewed || null,
-        ease_factor: question.easeFactor || 2.5
+        ease_factor: question.easeFactor || 2.5,
+        image_url: question.imageUrl || null,
+        image_grid_index: question.imageGridIndex !== undefined ? question.imageGridIndex : null
     };
 
     const { error } = await supabase.from('questions').upsert(qData);
-    if (error) console.error('Cloud Save Q Error:', error, 'Question:', question.id);
+    if (error) console.error('Cloud Save Q Error:', error.message, error.details, 'Question:', question.id);
 }
 
 export async function saveMaterials() {
@@ -193,6 +222,12 @@ export async function saveMaterials() {
 // Helper to save new material to cloud
 export async function saveMaterialToCloud(material) {
     if (!appState.currentUser) return;
+
+    // Skip legacy IDs (non-UUID format)
+    const isUUID = (id) => typeof id === 'string' && id.includes('-');
+    if (!isUUID(String(material.id))) {
+        return; // Silently skip legacy format
+    }
 
     const mData = {
         id: material.id,
@@ -204,7 +239,10 @@ export async function saveMaterialToCloud(material) {
     };
 
     const { error } = await supabase.from('materials').upsert(mData);
-    if (error) console.error('Cloud Save Material Error:', error);
+    if (error) {
+        console.error('Cloud Save Material Error:', error);
+        throw error; // Throw so API stops
+    }
 }
 
 export async function saveUserStats() {
@@ -217,16 +255,30 @@ export async function saveUserStats() {
             correct_answers: appState.userStats.correctAnswers,
             last_study_date: appState.userStats.lastStudyDate,
             streak: appState.userStats.streak,
-            updated_at: new Date()
+            updated_at: new Date().toISOString()
         }).eq('id', appState.currentUser.id);
 
-        if (error) console.error('Cloud Stats Error:', error);
+        if (error) console.error('Cloud Stats Error:', error.message, error.details);
     }
 }
 
 export function saveApiKey(key) {
     localStorage.setItem('openai_api_key', key);
     appState.apiKey = key;
+}
+
+export async function saveSettings() {
+    localStorage.setItem('quiz_settings', JSON.stringify(appState.quizSettings));
+
+    // Cloud Sync
+    if (appState.currentUser) {
+        const { error } = await supabase.from('profiles').update({
+            settings: { quizSettings: appState.quizSettings },
+            updated_at: new Date().toISOString()
+        }).eq('id', appState.currentUser.id);
+
+        if (error) console.error('Cloud Settings Save Error:', error);
+    }
 }
 
 export async function resetAllData() {
@@ -247,4 +299,16 @@ export async function resetAllData() {
         lastStudyDate: null,
         streak: 0
     };
+}
+
+// Cloud Deletion
+export async function deleteMaterialFromCloud(materialId) {
+    if (!appState.currentUser) return;
+
+    // Delete questions first (if no cascade)
+    const { error: qError } = await supabase.from('questions').delete().eq('material_id', materialId);
+    if (qError) console.error('Cloud Delete Questions Error:', qError);
+
+    const { error } = await supabase.from('materials').delete().eq('id', materialId);
+    if (error) console.error('Cloud Delete Material Error:', error);
 }

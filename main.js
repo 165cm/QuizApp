@@ -2,14 +2,16 @@
 import { appState } from './modules/state.js';
 import { loadData, saveApiKey, resetAllData } from './modules/storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, updateReportUI } from './modules/ui.js';
-import { generateQuizFromText, generateQuizFromUrl, extractTextFromPDF, generateMaterialMetadata, generateQuestionsWithAI, generateImagesForQuestions, updateGeneratingStatus } from './modules/api.js';
+import { generateQuizFromText, generateQuizFromUrl, extractTextFromPDF, generateMaterialMetadata, generateQuestionsWithAI, generateImagesForQuestions, updateGeneratingStatus, regenerateImages, closePreviewAndGoHome } from './modules/api.js';
 import { startQuiz } from './modules/game.js';
 import { initLibrary, showMaterialsLibrary } from './modules/library.js';
 import { showReviewList } from './modules/review.js';
 import { checkForSharedCertificate, checkForSharedMaterial, copyShareURL, generateQRCode } from './modules/share.js';
 import { initAuth, signInWithGoogle, signOut } from './modules/auth.js';
+import { initSettings } from './modules/settings.js';
 
 // Initialize
+let pendingGenContext = null; // Stores data for generation pending customization
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
     initAuth(); // Initialize Supabase auth
@@ -22,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initLibrary(); // Setup library listeners
+    initSettings(); // Setup settings listeners
     setupEventListeners();
 
     // Auth event listeners
@@ -71,23 +74,17 @@ function setupEventListeners() {
     document.getElementById('back-to-home-from-review-btn')?.addEventListener('click', initHomeScreen);
     document.getElementById('back-to-library-btn')?.addEventListener('click', showMaterialsLibrary);
 
-    // API Key
-    document.getElementById('save-api-key')?.addEventListener('click', () => {
-        const key = document.getElementById('api-key-input').value.trim();
-        if (key) {
-            saveApiKey(key);
-            document.getElementById('api-key-modal').classList.add('hidden');
-            alert('APIキーを保存しました');
-        }
-    });
-    document.getElementById('cancel-api-key')?.addEventListener('click', () => {
-        document.getElementById('api-key-modal').classList.add('hidden');
-    });
+    // API Key listeners handled in settings.js
 
     // Share Modal
     document.getElementById('close-share-modal')?.addEventListener('click', () => {
         document.getElementById('share-modal').classList.add('hidden');
     });
+
+    // Quiz Preview Modal
+    document.getElementById('close-preview-modal')?.addEventListener('click', closePreviewAndGoHome);
+    document.getElementById('close-preview-btn')?.addEventListener('click', closePreviewAndGoHome);
+    document.getElementById('regenerate-images-btn')?.addEventListener('click', regenerateImages);
 
     document.getElementById('copy-url-btn')?.addEventListener('click', () => {
         if (appState.currentMaterialId) copyShareURL(appState.currentMaterialId);
@@ -101,13 +98,7 @@ function setupEventListeners() {
     });
 
     // Reset Data
-    document.getElementById('reset-all-data-btn')?.addEventListener('click', () => {
-        if (confirm('本当にすべてのデータを削除しますか？\nこの操作は取り消せません。')) {
-            resetAllData();
-            initHomeScreen();
-            alert('データをリセットしました');
-        }
-    });
+    // Reset Data listener moved to settings.js
 
     document.querySelectorAll('.count-btn-compact').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -130,26 +121,83 @@ function setupEventListeners() {
         document.getElementById('generate-btn').disabled = false;
     });
 
-    document.getElementById('generate-btn')?.addEventListener('click', async () => {
-        const file = document.getElementById('pdf-input').files[0];
-        if (!file) return;
-        if (!appState.apiKey) {
-            document.getElementById('api-key-modal').classList.remove('hidden');
-            return;
-        }
+    // Generation Settings Modal Listeners
+    const genModal = document.getElementById('generation-settings-modal');
+    document.getElementById('close-gen-settings-modal')?.addEventListener('click', () => {
+        genModal.classList.add('hidden');
+    });
+
+    document.getElementById('confirm-generate-btn')?.addEventListener('click', async () => {
+        if (!pendingGenContext) return;
+        genModal.classList.add('hidden');
+
+        // Read selected level from active button
+        const activeBtn = document.querySelector('#level-buttons .level-btn.active');
+        const level = activeBtn?.dataset.value || '一般';
+        const activeLangBtn = document.querySelector('#lang-buttons .level-btn.active');
+        const outputLang = activeLangBtn?.dataset.value || '日本語';
+        const instructions = document.getElementById('gen-setting-instructions').value;
+        const customSettings = { targetLevel: level, customInstructions: instructions, outputLanguage: outputLang };
 
         try {
-            showScreen('generating-screen');
-            updateGeneratingStatus('PDFを読み込んでいます...', 10);
-            const text = await extractTextFromPDF(file);
-            // Use unified generation logic
-            await generateQuizFromText(text, file.name);
-
+            if (pendingGenContext.type === 'pdf') {
+                showScreen('generating-screen');
+                updateGeneratingStatus('PDFを読み込んでいます...', 10);
+                const text = await extractTextFromPDF(pendingGenContext.file);
+                await generateQuizFromText(text, pendingGenContext.file.name, customSettings);
+            } else if (pendingGenContext.type === 'text') {
+                await generateQuizFromText(pendingGenContext.text, 'テキスト入力', customSettings);
+            } else if (pendingGenContext.type === 'url') {
+                await generateQuizFromUrl(pendingGenContext.url, customSettings);
+            }
         } catch (e) {
             console.error(e);
             alert('生成失敗: ' + e.message);
             initHomeScreen();
+        } finally {
+            pendingGenContext = null;
         }
+    });
+
+    // Helper to open generation settings
+    const openGenSettings = (context) => {
+        pendingGenContext = context;
+        // Load Defaults
+        const defaults = appState.quizSettings || { targetLevel: '一般', customInstructions: '' };
+        // Set active button based on defaults
+        document.querySelectorAll('#level-buttons .level-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.value === (defaults.targetLevel || '一般'));
+        });
+        // Populate instructions
+        document.getElementById('gen-setting-instructions').value = defaults.customInstructions || '';
+
+        genModal.classList.remove('hidden');
+    };
+
+    // Level button click handlers
+    document.querySelectorAll('#level-buttons .level-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#level-buttons .level-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Language button click handlers
+    document.querySelectorAll('#lang-buttons .level-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#lang-buttons .level-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    document.getElementById('generate-btn')?.addEventListener('click', async () => {
+        const file = document.getElementById('pdf-input').files[0];
+        if (!file) return;
+        if (!appState.apiKey) {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            return;
+        }
+        openGenSettings({ type: 'pdf', file: file });
     });
 
     document.getElementById('generate-from-text-btn')?.addEventListener('click', async () => {
@@ -160,10 +208,10 @@ function setupEventListeners() {
             return;
         }
         if (!appState.apiKey) {
-            document.getElementById('api-key-modal').classList.remove('hidden');
+            document.getElementById('settings-modal').classList.remove('hidden');
             return;
         }
-        await generateQuizFromText(text, 'テキスト入力');
+        openGenSettings({ type: 'text', text: text });
         inputEl.value = ''; // Clear input on success
     });
 
@@ -174,9 +222,9 @@ function setupEventListeners() {
             return;
         }
         if (!appState.apiKey) {
-            document.getElementById('api-key-modal').classList.remove('hidden');
+            document.getElementById('settings-modal').classList.remove('hidden');
             return;
         }
-        await generateQuizFromUrl(url);
+        openGenSettings({ type: 'url', url: url });
     });
 }

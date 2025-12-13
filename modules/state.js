@@ -1,5 +1,7 @@
 export const appState = {
     apiKey: localStorage.getItem('openai_api_key') || '',
+    googleApiKey: localStorage.getItem('google_api_key') || '',
+    imageModel: localStorage.getItem('image_model') || 'nano-banana', // 'nano-banana' default
     questions: [],
     materials: [],
     userStats: {
@@ -18,12 +20,18 @@ export const appState = {
     currentMaterialId: null,
     previousQuestion: null,
     // defaults
-    selectedMaterial: 'review-priority', 
+    selectedMaterial: 'review-priority',
     questionCount: 10,
-    
+
     // Shared Quiz State
     isSharedQuiz: false,
-    sharedQuizTitle: ''
+    sharedQuizTitle: '',
+
+    // User Settings (Quiz Customization)
+    quizSettings: {
+        targetLevel: '一般', // Default level
+        customInstructions: '' // Default instructions
+    }
 };
 
 export function setState(key, value) {
