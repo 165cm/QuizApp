@@ -1,6 +1,6 @@
 import { appState } from './state.js';
 import { supabase } from './supabase.js';
-import { DEFAULT_PROMPTS } from './default_prompts.js';
+
 
 // Load data from Storage or Supabase
 export async function loadData() {
