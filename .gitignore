@@ -9,4 +9,4 @@ node_modules/
 Thumbs.db
 
 # Secrets
-modules/default_prompts.js
+
