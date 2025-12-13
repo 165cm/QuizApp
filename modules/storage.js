@@ -17,9 +17,12 @@ export async function loadData() {
     appState.questions = localQuestions;
     appState.materials = localMaterials;
     appState.userStats = localStats;
-    appState.questions = localQuestions;
-    appState.materials = localMaterials;
-    appState.userStats = localStats;
+    if (localQuestions) appState.questions = localQuestions;
+    if (localMaterials) appState.materials = localMaterials;
+    if (localStats) {
+        // Merge with defaults to ensure all fields (like streak) exist
+        appState.userStats = { ...appState.userStats, ...localStats };
+    }
     appState.apiKey = localStorage.getItem('openai_api_key') || '';
 
     // Load quiz settings (customizations)
@@ -254,7 +257,7 @@ export async function saveUserStats() {
             total_answered: appState.userStats.totalAnswered,
             correct_answers: appState.userStats.correctAnswers,
             last_study_date: appState.userStats.lastStudyDate,
-            streak: appState.userStats.streak,
+            // streak: appState.userStats.streak, // Comment out to fix 400 error if column missing
             updated_at: new Date().toISOString()
         }).eq('id', appState.currentUser.id);
 

@@ -142,7 +142,16 @@ function showFeedback(q, isCorrect) {
 
     document.getElementById('feedback-title').textContent = isCorrect ? '正解!' : '不正解';
     document.getElementById('feedback-title').style.color = isCorrect ? '#10b981' : '#ef4444';
-    document.getElementById('feedback-explanation').textContent = q.explanation;
+
+    // Show correct answer in feedback modal (important for mobile where choices are hidden)
+    const correctAnswer = q.choices[q.correctIndex];
+    const explanationEl = document.getElementById('feedback-explanation');
+    explanationEl.innerHTML = `
+        <div style="background: rgba(16, 185, 129, 0.15); padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 3px solid #10b981;">
+            <strong style="color: #10b981;">✓ 正解:</strong> ${correctAnswer}
+        </div>
+        <div>${q.explanation}</div>
+    `;
 
     const nextBtn = document.getElementById('next-question-btn');
     const timerEl = document.getElementById('feedback-timer');

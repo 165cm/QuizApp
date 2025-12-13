@@ -12,12 +12,14 @@ import { initSettings } from './modules/settings.js';
 
 // Initialize
 let pendingGenContext = null; // Stores data for generation pending customization
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     loadData();
     initAuth(); // Initialize Supabase auth
 
-    // Check for shared content
-    const isShared = checkForSharedCertificate() || checkForSharedMaterial(startQuiz);
+    // Check for shared content (async for Supabase fetch)
+    const isSharedCert = checkForSharedCertificate();
+    const isSharedMaterial = await checkForSharedMaterial(startQuiz);
+    const isShared = isSharedCert || isSharedMaterial;
 
     if (!isShared) {
         initHomeScreen();
@@ -86,14 +88,37 @@ function setupEventListeners() {
     document.getElementById('close-preview-btn')?.addEventListener('click', closePreviewAndGoHome);
     document.getElementById('regenerate-images-btn')?.addEventListener('click', regenerateImages);
 
-    document.getElementById('copy-url-btn')?.addEventListener('click', () => {
-        if (appState.currentMaterialId) copyShareURL(appState.currentMaterialId);
+    document.getElementById('copy-url-btn')?.addEventListener('click', async () => {
+        // Use currentMaterialId first as it matches the detailed view or quiz session
+        let materialId = appState.currentMaterialId;
+
+        // Validation: matches a real material ID?
+        const isRealMaterial = appState.materials.some(m => m.id === materialId);
+        if (!isRealMaterial) {
+            // Fallback to selectedMaterial if it's a real ID (not 'review-priority')
+            const selectedIsReal = appState.materials.some(m => m.id === appState.selectedMaterial);
+            if (selectedIsReal) materialId = appState.selectedMaterial;
+        }
+
+        if (materialId) copyShareURL(materialId);
     });
 
     document.getElementById('show-qr-btn')?.addEventListener('click', () => {
-        if (appState.currentMaterialId) {
-            generateQRCode(appState.currentMaterialId);
-            document.getElementById('qr-code-container').classList.remove('hidden');
+        // Use currentMaterialId first
+        let materialId = appState.currentMaterialId;
+
+        const isRealMaterial = appState.materials.some(m => m.id === materialId);
+        if (!isRealMaterial) {
+            const selectedIsReal = appState.materials.some(m => m.id === appState.selectedMaterial);
+            if (selectedIsReal) materialId = appState.selectedMaterial;
+        }
+
+        if (materialId) {
+            generateQRCode(materialId);
+            // Show both the parent container and QR container
+            document.getElementById('share-result')?.classList.remove('hidden');
+            document.getElementById('share-success')?.classList.add('hidden'); // Hide copy success
+            document.getElementById('qr-code-container')?.classList.remove('hidden');
         }
     });
 

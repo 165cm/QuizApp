@@ -81,12 +81,25 @@ function showSharedCertificate(certData) {
 }
 
 // --- Material Share ---
-export function generateShareURL(materialId) {
+
+// Get Supabase client (shared across app)
+function getSupabase() {
+    return window.supabaseClient;
+}
+
+// Generate short share URL using Supabase storage
+export async function generateShareURL(materialId) {
+    console.log('🔵 generateShareURL called for:', materialId);
+    console.log('🔵 Current materials:', appState.materials.map(m => m.id));
+
     const material = appState.materials.find(m => m.id === materialId);
-    if (!material) return null;
+    if (!material) {
+        console.error('❌ Material not found in appState');
+        return null;
+    }
     const questions = appState.questions.filter(q => q.materialId === materialId);
+
     const shareData = {
-        version: 1,
         material: {
             title: material.title,
             summary: material.summary,
@@ -97,21 +110,102 @@ export function generateShareURL(materialId) {
             question: q.question,
             choices: q.choices,
             correctIndex: q.correctIndex,
-            explanation: q.explanation.substring(0, 100) + (q.explanation.length > 100 ? '...' : ''),
+            explanation: q.explanation || '',
             difficulty: q.difficulty,
             sourceSection: q.sourceSection,
-            tags: q.tags
+            tags: q.tags,
+            imageUrl: q.imageUrl,
+            imageGridIndex: q.imageGridIndex
         }))
     };
-    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(shareData));
+
+    const supabase = getSupabase();
+    if (supabase) {
+        try {
+            console.log('🔵 Attempting to save to Supabase...');
+            // Save to Supabase and get short ID
+            const { data, error } = await supabase
+                .from('shared_quizzes')
+                .insert({
+                    material_data: shareData.material,
+                    questions_data: shareData.questions
+                })
+                .select('id')
+                .single();
+
+            if (error) {
+                console.error('❌ Supabase insert error detailed:', error);
+                throw error;
+            }
+
+            console.log('🟢 Supabase save success, ID:', data.id);
+            // Fix: Use origin + pathname to avoid including hash (#) which breaks query param parsing
+            const baseURL = window.location.origin + window.location.pathname;
+            return `${baseURL}?s=${data.id}`;
+        } catch (e) {
+            console.error('Supabase share error:', e);
+            // Fall back to LZ compression
+        }
+    }
+
+    // Fallback: LZ compression (for offline or Supabase unavailable)
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify({ version: 1, ...shareData }));
     const baseURL = window.location.href.split('?')[0];
     return `${baseURL}?share=${compressed}`;
 }
 
-export function checkForSharedMaterial(startQuizCallback) {
+export async function checkForSharedMaterial(startQuizCallback) {
+    console.log('🔵 checkForSharedMaterial called');
+    console.log('🔵 Current URL:', window.location.href);
+
     const urlParams = new URLSearchParams(window.location.search);
-    const share = urlParams.get('share');
-    if (!share) return;
+    let shortId = urlParams.get('s');
+    let share = urlParams.get('share');
+
+    // Robust check: if params are missing in search, check hash (for #?s=... case)
+    if (!shortId && !share && window.location.hash.includes('?')) {
+        console.log('🔵 Checking hash for params:', window.location.hash);
+        const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+        shortId = hashParams.get('s');
+        share = hashParams.get('share');
+    }
+
+    console.log('🔵 Detected params - shortId:', shortId, 'share:', !!share);
+
+    // Check for Supabase short ID first (?s=)
+    if (shortId) {
+        try {
+            const supabase = getSupabase();
+            if (!supabase) throw new Error('Supabase not available');
+
+            console.log('🔵 Fetching from Supabase for ID:', shortId);
+            const { data, error } = await supabase
+                .from('shared_quizzes')
+                .select('material_data, questions_data')
+                .eq('id', shortId)
+                .single();
+
+            if (error) throw error;
+
+            console.log('🟢 Data fetched from Supabase');
+            const shareData = {
+                material: data.material_data,
+                questions: data.questions_data
+            };
+
+            const newMaterialId = importSharedMaterial(shareData);
+            showSharedQuizLanding(newMaterialId, shareData, startQuizCallback);
+            return true;
+        } catch (err) {
+            console.error('Supabase fetch error:', err);
+            alert('共有クイズの読み込みに失敗しました。URLが無効か期限切れの可能性があります。');
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return false;
+        }
+    }
+
+    // Fallback: Check for legacy LZ compressed share (?share=)
+    if (!share) return false;
 
     try {
         const decompressed = LZString.decompressFromEncodedURIComponent(share);
@@ -121,16 +215,19 @@ export function checkForSharedMaterial(startQuizCallback) {
 
         const newMaterialId = importSharedMaterial(shareData);
         showSharedQuizLanding(newMaterialId, shareData, startQuizCallback);
+        return true;
     } catch (err) {
         console.error(err);
         alert('共有データの読み込みに失敗しました');
         window.history.replaceState({}, document.title, window.location.pathname);
+        return false;
     }
 }
 
 function importSharedMaterial(shareData) {
-    const newMaterialId = 'mat_' + Date.now();
-    const newReferenceId = 'ref_' + Date.now();
+    // Use UUID format for cloud sync compatibility
+    const newMaterialId = crypto.randomUUID();
+    const newReferenceId = crypto.randomUUID();
     const titleSuffix = shareData.material.title.endsWith(' (共有)') ? '' : ' (共有)';
 
     const newMaterial = {
@@ -146,7 +243,7 @@ function importSharedMaterial(shareData) {
     };
 
     const newQuestions = shareData.questions.map((q, index) => ({
-        id: Date.now() + index + Math.random(),
+        id: crypto.randomUUID(),
         ...q,
         materialId: newMaterialId,
         lastReviewed: null,
@@ -196,31 +293,47 @@ function showSharedQuizLanding(materialId, shareData, startQuizCallback) {
     });
 }
 
-export function copyShareURL(materialId) {
-    const url = generateShareURL(materialId);
-    if (!url) return;
-    navigator.clipboard.writeText(url).then(() => {
+export async function copyShareURL(materialId) {
+    try {
+        const url = await generateShareURL(materialId);
+        if (!url) {
+            alert('シェアURLの生成に失敗しました（データが見つからないかエラーが発生しました）');
+            return;
+        }
+
+        await navigator.clipboard.writeText(url);
         const material = appState.materials.find(m => m.id === materialId);
         if (material) {
             material.hasBeenShared = true;
             saveMaterials();
         }
-        alert('URLをコピーしました！');
-    }).catch(err => console.error(err));
+
+        // Show success message in UI
+        document.getElementById('share-result')?.classList.remove('hidden');
+        document.getElementById('share-success')?.classList.remove('hidden');
+        document.getElementById('qr-code-container')?.classList.add('hidden');
+    } catch (err) {
+        console.error('Copy Share URL Error:', err);
+        alert('エラーが発生しました: ' + (err.message || '詳細不明'));
+    }
 }
 
-export function generateQRCode(materialId) {
-    const url = generateShareURL(materialId);
+export async function generateQRCode(materialId) {
     const qrContainer = document.getElementById('qr-code');
-    qrContainer.innerHTML = ''; // Clear previous
+    qrContainer.innerHTML = '<p style="color: #888;">生成中...</p>';
 
-    // Ensure container is visible before generation causing layout issues? 
-    // Usually library handles it but better safe.
-    // QRCode library expects element.
+    const url = await generateShareURL(materialId);
+    if (!url) {
+        qrContainer.innerHTML = '<p style="color: #ef4444;">URL生成エラー</p>';
+        return;
+    }
+
+    qrContainer.innerHTML = ''; // Clear loading message
+
     try {
         new QRCode(qrContainer, {
             text: url,
-            width: 180, // slightly smaller to fit padding
+            width: 180,
             height: 180,
             colorDark: '#000000',
             colorLight: '#ffffff',
@@ -230,6 +343,7 @@ export function generateQRCode(materialId) {
         console.error('QR Generate Error', e);
         qrContainer.textContent = 'QRコード生成エラー';
     }
+
     const material = appState.materials.find(m => m.id === materialId);
     if (material) {
         material.hasBeenShared = true;
