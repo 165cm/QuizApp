@@ -1,0 +1,36 @@
+/* Markdown Content Wrapping Fix */
+.material-content {
+    overflow-wrap: break-word;
+    /* Prevent text overflow */
+    word-wrap: break-word;
+    /* Legacy support */
+    word-break: break-word;
+    /* Ensure long words break */
+    max-width: 100%;
+    /* Ensure container constraint */
+}
+
+/* Ensure images and other elements fit */
+.material-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 8px 0;
+}
+
+.material-content pre {
+    white-space: pre-wrap;
+    /* Wrap code blocks */
+    background: var(--bg-secondary);
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.material-content code {
+    background: var(--bg-secondary);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}

@@ -1,7 +1,6 @@
 export const appState = {
     apiKey: localStorage.getItem('openai_api_key') || '',
     googleApiKey: localStorage.getItem('google_api_key') || '',
-    imageModel: localStorage.getItem('image_model') || 'nano-banana', // 'nano-banana' default
     questions: [],
     materials: [],
     userStats: {

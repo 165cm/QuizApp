@@ -56,7 +56,7 @@ export async function signOut() {
 // Listen for auth state changes
 export function initAuth() {
     supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event);
+
 
         if (session?.user) {
             appState.currentUser = session.user;
@@ -65,7 +65,7 @@ export function initAuth() {
             // Trigger sync only on INITIAL_SESSION (page load with existing session)
             // SIGNED_IN fires during OAuth redirect before session is fully ready
             if (event === 'INITIAL_SESSION') {
-                console.log('🔐 User authenticated, starting sync...');
+
                 await syncWithSupabase();
             }
         } else {

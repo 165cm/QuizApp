@@ -19,665 +19,693 @@
 </head>
 
 <body>
-    <div id="app">
-        <!-- ... (truncated, keeping existing structure until Game Screen) ... -->
-        <!-- Just replacing the header part in the specific block, or I can do granular edits. 
-             Since I cannot see the whole file in replaced_content easily, I will trust the line numbers from previous view. 
-             Line 16 is qrcode. Line 438 is quit-btn.
-             I will make 2 replacement chunks? replace_file_content only supports contiguous.
-             I'll use multi_replace for this.
-        -->
-        <!-- Wait, I selected replace_file_content. I'll switch to multi_replace or do one by one.
-             Let's do one by one or multi. Multi is safer for non-contiguous.
-        -->
+    <!-- グローバルナビゲーション -->
+    <nav id="global-nav" class="global-nav">
+        <a href="#" class="nav-item active" data-screen="home" data-tab="start">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">ホーム</span>
+        </a>
+        <a href="#" class="nav-item" data-screen="references">
+            <span class="nav-icon">📚</span>
+            <span class="nav-label">ライブラリ</span>
+        </a>
+        <a href="#" class="nav-item" data-screen="home" data-tab="generate">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">生成</span>
+        </a>
+        <a href="#" class="nav-item" data-screen="home" data-tab="report">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">レポート</span>
+        </a>
+        <a href="#" class="nav-item" data-screen="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">設定</span>
+        </a>
+    </nav>
 
-        <body>
-            <div id="app">
-                <!-- シェア専用LP画面 -->
-                <div id="shared-quiz-landing" class="screen">
-                    <div class="landing-container">
-                        <div class="landing-hero">
-                            <div class="landing-icon">🎓</div>
-                            <h1 class="landing-title" id="shared-quiz-title">クイズに挑戦</h1>
-                            <p class="landing-description" id="shared-quiz-description">
-                                友達から共有されたクイズです。<br>
-                                あなたの知識を試してみましょう！
-                            </p>
-                            <div class="landing-stats">
-                                <div class="landing-stat">
-                                    <span class="stat-icon">📝</span>
-                                    <span class="stat-value" id="shared-quiz-count">10</span>
-                                    <span class="stat-label">問</span>
-                                </div>
-                                <div class="landing-stat">
-                                    <span class="stat-icon">⏱️</span>
-                                    <span class="stat-value" id="shared-quiz-time">5</span>
-                                    <span class="stat-label">分</span>
-                                </div>
-                            </div>
-                            <button id="start-shared-quiz-btn" class="btn-landing-start">クイズを始める</button>
+    <div id="app" class="app-with-nav">
+        <!-- シェア専用LP画面 -->
+        <div id="shared-quiz-landing" class="screen">
+            <div class="landing-container">
+                <div class="landing-hero">
+                    <div class="landing-icon">🎓</div>
+                    <h1 class="landing-title" id="shared-quiz-title">クイズに挑戦</h1>
+                    <p class="landing-description" id="shared-quiz-description">
+                        友達から共有されたクイズです。<br>
+                        あなたの知識を試してみましょう！
+                    </p>
+                    <div class="landing-stats">
+                        <div class="landing-stat">
+                            <span class="stat-icon">📝</span>
+                            <span class="stat-value" id="shared-quiz-count">10</span>
+                            <span class="stat-label">問</span>
+                        </div>
+                        <div class="landing-stat">
+                            <span class="stat-icon">⏱️</span>
+                            <span class="stat-value" id="shared-quiz-time">5</span>
+                            <span class="stat-label">分</span>
+                        </div>
+                    </div>
+                    <button id="start-shared-quiz-btn" class="btn-landing-start">クイズを始める</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 認定書画面 -->
+        <div id="certificate-screen" class="screen">
+            <div class="certificate-container">
+                <div class="certificate-card">
+                    <div class="certificate-header">
+                        <div class="certificate-badge">🏆</div>
+                        <h2 class="certificate-title">認定証</h2>
+                    </div>
+                    <div class="certificate-body">
+                        <div class="certificate-name-section">
+                            <p class="certificate-label">この証は、</p>
+                            <h3 class="certificate-quiz-title" id="cert-quiz-title">マレーシア文化クイズ</h3>
+                            <p class="certificate-label">を修了したことを認定します</p>
+                        </div>
+                        <div class="certificate-score">
+                            <span class="score-label">正解率</span>
+                            <span class="score-value" id="cert-score">80%</span>
+                            <span class="score-detail" id="cert-detail">(10問中8問正解)</span>
+                        </div>
+                        <div class="certificate-date">
+                            <span id="cert-date">2025年11月15日</span>
+                        </div>
+                    </div>
+                    <div class="certificate-actions">
+                        <button id="share-certificate-btn" class="btn-cert-share">
+                            📤 結果をシェア
+                        </button>
+                        <button id="try-again-btn" class="btn-cert-retry">
+                            🔄 もう一度挑戦
+                        </button>
+                        <button id="create-own-quiz-btn" class="btn-cert-create">
+                            ✨ 自分でクイズを作る
+                        </button>
+                    </div>
+
+                    <!-- メール登録カード -->
+                    <div class="certificate-email-card">
+                        <div class="certificate-email-header">
+                            <div class="certificate-email-icon">🎯</div>
+                            <h3 class="certificate-email-title">オリジナル問題生成機能</h3>
+                        </div>
+                        <p class="certificate-email-description">
+                            自分だけのクイズを作りたい方へ。早期アクセスと特別価格のご案内をお届けします。
+                        </p>
+                        <form id="certificate-email-form" class="certificate-email-form">
+                            <input type="email" id="certificate-email-input" class="certificate-email-input"
+                                placeholder="メールアドレスを入力" required>
+                            <button type="submit" class="certificate-email-btn">登録する</button>
+                        </form>
+                        <p class="certificate-email-note">
+                            登録することで、<a href="#" id="certificate-privacy-link"
+                                style="color: white; text-decoration: underline;">プライバシーポリシー</a>に同意したものとみなされます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- プライバシーポリシーモーダル -->
+        <div id="privacy-policy-modal" class="modal hidden">
+            <div class="modal-content privacy-modal-content">
+                <div class="modal-header">
+                    <h2>プライバシーポリシー</h2>
+                    <button id="close-privacy-modal" class="btn-close">✕</button>
+                </div>
+                <div class="privacy-content">
+                    <h3>1. 収集する情報</h3>
+                    <p>当サービスでは、早期アクセス登録時に以下の情報を収集します：</p>
+                    <ul>
+                        <li>メールアドレス</li>
+                        <li>登録日時</li>
+                    </ul>
+
+                    <h3>2. 情報の利用目的</h3>
+                    <p>収集した情報は、以下の目的で利用します：</p>
+                    <ul>
+                        <li>サービスのリリース情報や特別価格のご案内</li>
+                        <li>サービスの改善と開発</li>
+                    </ul>
+
+                    <h3>3. 情報の第三者提供</h3>
+                    <p>お客様の個人情報を、お客様の同意なく第三者に提供することはありません。</p>
+
+                    <h3>4. 情報の管理</h3>
+                    <p>お客様の個人情報は、厳重に管理し、不正アクセス、紛失、破壊、改ざん、漏洩などを防止します。</p>
+
+                    <h3>5. お問い合わせ</h3>
+                    <p>個人情報の取り扱いに関するお問い合わせは、以下のメールアドレスまでご連絡ください：</p>
+                    <p><strong>privacy@quizmaster.com</strong></p>
+
+                    <p class="privacy-date">最終更新日: 2025年11月15日</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ホーム画面 -->
+        <div id="home-screen" class="screen active">
+            <div class="container">
+                <div class="header-compact">
+                    <h1 class="logo-compact">📚 QuizMaster</h1>
+                    <div class="header-right">
+                        <!-- Login Button (shown when logged out) -->
+                        <button id="login-btn" class="btn-google-login">
+                            <svg width="18" height="18" viewBox="0 0 24 24">
+                                <path fill="#4285F4"
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                <path fill="#34A853"
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                <path fill="#FBBC05"
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                                <path fill="#EA4335"
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                            </svg>
+                            ログイン
+                        </button>
+
+                        <!-- User Info (shown when logged in) -->
+                        <div id="user-info" class="user-info" style="display: none;">
+                            <img id="user-avatar" class="user-avatar" src="" alt="">
+                            <span id="user-name" class="user-name"></span>
+                            <button id="logout-btn" class="btn-logout">ログアウト</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 認定書画面 -->
-                <div id="certificate-screen" class="screen">
-                    <div class="certificate-container">
-                        <div class="certificate-card">
-                            <div class="certificate-header">
-                                <div class="certificate-badge">🏆</div>
-                                <h2 class="certificate-title">認定証</h2>
+                <!-- タブナビゲーション -->
+                <!-- タブコンテンツ -->
+                <div class="home-tab-content active" id="tab-start">
+                    <!-- 学習開始セクション -->
+                    <div class="quick-start-section-compact">
+                        <div class="study-config-compact">
+                            <div class="config-row-compact">
+                                <label class="config-label-compact">出題範囲</label>
+                                <select id="material-select" class="config-select-compact">
+                                    <option value="review-priority">復習待ち優先</option>
+                                    <option value="all">全ての問題からランダム</option>
+                                </select>
                             </div>
-                            <div class="certificate-body">
-                                <div class="certificate-name-section">
-                                    <p class="certificate-label">この証は、</p>
-                                    <h3 class="certificate-quiz-title" id="cert-quiz-title">マレーシア文化クイズ</h3>
-                                    <p class="certificate-label">を修了したことを認定します</p>
-                                </div>
-                                <div class="certificate-score">
-                                    <span class="score-label">正解率</span>
-                                    <span class="score-value" id="cert-score">80%</span>
-                                    <span class="score-detail" id="cert-detail">(10問中8問正解)</span>
-                                </div>
-                                <div class="certificate-date">
-                                    <span id="cert-date">2025年11月15日</span>
+                            <div class="config-row-compact">
+                                <label class="config-label-compact">出題数</label>
+                                <div class="question-count-selector-compact">
+                                    <button class="count-btn-compact" data-count="5">5</button>
+                                    <button class="count-btn-compact active" data-count="10">10</button>
+                                    <button class="count-btn-compact" data-count="15">15</button>
+                                    <button class="count-btn-compact" data-count="20">20</button>
+                                    <button class="count-btn-compact" data-count="25">25</button>
+                                    <button class="count-btn-compact" data-count="30">30</button>
                                 </div>
                             </div>
-                            <div class="certificate-actions">
-                                <button id="share-certificate-btn" class="btn-cert-share">
-                                    📤 結果をシェア
-                                </button>
-                                <button id="try-again-btn" class="btn-cert-retry">
-                                    🔄 もう一度挑戦
-                                </button>
-                                <button id="create-own-quiz-btn" class="btn-cert-create">
-                                    ✨ 自分でクイズを作る
-                                </button>
-                            </div>
+                        </div>
+                        <button id="start-quiz-btn" class="btn btn-success btn-large-compact">
+                            学習を開始する
+                        </button>
+                    </div>
 
-                            <!-- メール登録カード -->
-                            <div class="certificate-email-card">
-                                <div class="certificate-email-header">
-                                    <div class="certificate-email-icon">🎯</div>
-                                    <h3 class="certificate-email-title">オリジナル問題生成機能</h3>
-                                </div>
-                                <p class="certificate-email-description">
-                                    自分だけのクイズを作りたい方へ。早期アクセスと特別価格のご案内をお届けします。
-                                </p>
-                                <form id="certificate-email-form" class="certificate-email-form">
-                                    <input type="email" id="certificate-email-input" class="certificate-email-input"
-                                        placeholder="メールアドレスを入力" required>
-                                    <button type="submit" class="certificate-email-btn">登録する</button>
-                                </form>
-                                <p class="certificate-email-note">
-                                    登録することで、<a href="#" id="certificate-privacy-link"
-                                        style="color: white; text-decoration: underline;">プライバシーポリシー</a>に同意したものとみなされます。
-                                </p>
-                            </div>
+                    <!-- 統計（コンパクト） -->
+                    <div class="stats-grid-compact">
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">総問題数</div>
+                            <div class="stat-value-compact" id="total-questions">0</div>
+                        </div>
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">正解率</div>
+                            <div class="stat-value-compact" id="accuracy-rate">0%</div>
+                        </div>
+                        <div class="stat-card-compact clickable" id="review-count-card">
+                            <div class="stat-label-compact">復習待ち</div>
+                            <div class="stat-value-compact" id="review-count">0</div>
+                        </div>
+                        <div class="stat-card-compact">
+                            <div class="stat-label-compact">連続学習</div>
+                            <div class="stat-value-compact" id="streak-count">0</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- プライバシーポリシーモーダル -->
-                <div id="privacy-policy-modal" class="modal hidden">
-                    <div class="modal-content privacy-modal-content">
-                        <div class="modal-header">
-                            <h2>プライバシーポリシー</h2>
-                            <button id="close-privacy-modal" class="btn-close">✕</button>
-                        </div>
-                        <div class="privacy-content">
-                            <h3>1. 収集する情報</h3>
-                            <p>当サービスでは、早期アクセス登録時に以下の情報を収集します：</p>
-                            <ul>
-                                <li>メールアドレス</li>
-                                <li>登録日時</li>
-                            </ul>
-
-                            <h3>2. 情報の利用目的</h3>
-                            <p>収集した情報は、以下の目的で利用します：</p>
-                            <ul>
-                                <li>サービスのリリース情報や特別価格のご案内</li>
-                                <li>サービスの改善と開発</li>
-                            </ul>
-
-                            <h3>3. 情報の第三者提供</h3>
-                            <p>お客様の個人情報を、お客様の同意なく第三者に提供することはありません。</p>
-
-                            <h3>4. 情報の管理</h3>
-                            <p>お客様の個人情報は、厳重に管理し、不正アクセス、紛失、破壊、改ざん、漏洩などを防止します。</p>
-
-                            <h3>5. お問い合わせ</h3>
-                            <p>個人情報の取り扱いに関するお問い合わせは、以下のメールアドレスまでご連絡ください：</p>
-                            <p><strong>privacy@quizmaster.com</strong></p>
-
-                            <p class="privacy-date">最終更新日: 2025年11月15日</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ホーム画面 -->
-                <div id="home-screen" class="screen active">
-                    <div class="container">
-                        <div class="header-compact">
-                            <h1 class="logo-compact">📚 QuizMaster</h1>
-                            <div class="header-right">
-                                <button id="settings-btn" class="btn-icon-text" aria-label="設定">
-                                    <span style="font-size: 1.2rem;">⚙️</span>
-                                </button>
-                                <!-- Login Button (shown when logged out) -->
-                                <button id="login-btn" class="btn-google-login">
-                                    <svg width="18" height="18" viewBox="0 0 24 24">
-                                        <path fill="#4285F4"
-                                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                        <path fill="#34A853"
-                                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                        <path fill="#FBBC05"
-                                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                        <path fill="#EA4335"
-                                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                                    </svg>
-                                    ログイン
-                                </button>
-
-                                <!-- User Info (shown when logged in) -->
-                                <div id="user-info" class="user-info" style="display: none;">
-                                    <img id="user-avatar" class="user-avatar" src="" alt="">
-                                    <span id="user-name" class="user-name"></span>
-                                    <button id="logout-btn" class="btn-logout">ログアウト</button>
-                                </div>
-
-                                <div class="streak-badge-compact">
-                                    <span class="fire-icon">🔥</span>
-                                    <span id="streak-count">0</span>
-                                </div>
-                            </div>
+                <div class="home-tab-content" id="tab-generate">
+                    <!-- 教材追加セクション -->
+                    <div class="upload-section-compact">
+                        <!-- PDF/テキスト/URL切り替えタブ -->
+                        <div class="input-mode-tabs-compact">
+                            <button class="mode-tab-compact active" data-mode="text">📝 テキスト</button>
+                            <button class="mode-tab-compact" data-mode="pdf">📄 PDF</button>
+                            <button class="mode-tab-compact" data-mode="url">🌐 URL</button>
                         </div>
 
-                        <!-- タブナビゲーション -->
-                        <div class="home-tab-navigation">
-                            <button class="home-tab-btn active" data-tab="start">学習開始</button>
-                            <button class="home-tab-btn" data-tab="generate">教材生成</button>
-                            <button class="home-tab-btn" data-tab="report">レポート</button>
+                        <!-- 画像生成オプション -->
+                        <div class="image-gen-option">
+                            <label class="image-gen-toggle">
+                                <input type="checkbox" id="image-gen-checkbox">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">🎨 画像付きクイズ</span>
+                            </label>
+                            <p class="image-gen-hint">各問題に記憶定着をサポートするユニークな画像を生成します（コスト削減モードON）</p>
                         </div>
 
-                        <!-- タブコンテンツ -->
-                        <div class="home-tab-content active" id="tab-start">
-                            <!-- 学習開始セクション -->
-                            <div class="quick-start-section-compact">
-                                <div class="study-config-compact">
-                                    <div class="config-row-compact">
-                                        <label class="config-label-compact">出題範囲</label>
-                                        <select id="material-select" class="config-select-compact">
-                                            <option value="review-priority">復習待ち優先</option>
-                                            <option value="all">全ての問題からランダム</option>
-                                        </select>
-                                    </div>
-                                    <div class="config-row-compact">
-                                        <label class="config-label-compact">出題数</label>
-                                        <div class="question-count-selector-compact">
-                                            <button class="count-btn-compact" data-count="5">5</button>
-                                            <button class="count-btn-compact active" data-count="10">10</button>
-                                            <button class="count-btn-compact" data-count="15">15</button>
-                                            <button class="count-btn-compact" data-count="20">20</button>
-                                            <button class="count-btn-compact" data-count="25">25</button>
-                                            <button class="count-btn-compact" data-count="30">30</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button id="start-quiz-btn" class="btn btn-success btn-large-compact">
-                                    学習を開始する
-                                </button>
-                            </div>
-
-                            <!-- 統計（コンパクト） -->
-                            <div class="stats-grid-compact">
-                                <div class="stat-card-compact">
-                                    <div class="stat-label-compact">総問題数</div>
-                                    <div class="stat-value-compact" id="total-questions">0</div>
-                                </div>
-                                <div class="stat-card-compact">
-                                    <div class="stat-label-compact">正解率</div>
-                                    <div class="stat-value-compact" id="accuracy-rate">0%</div>
-                                </div>
-                                <div class="stat-card-compact clickable" id="review-count-card">
-                                    <div class="stat-label-compact">復習待ち</div>
-                                    <div class="stat-value-compact" id="review-count">0</div>
-                                </div>
-                            </div>
+                        <!-- テキストモード -->
+                        <div id="text-mode" class="input-mode active">
+                            <textarea id="text-input" class="text-input-area-compact"
+                                placeholder="学習したいテキストを貼り付け..."></textarea>
+                            <button id="generate-from-text-btn"
+                                class="btn btn-primary btn-large-compact">テキストからクイズを生成</button>
                         </div>
 
-                        <div class="home-tab-content" id="tab-generate">
-                            <button id="manage-references-btn" class="btn btn-secondary btn-large-compact"
-                                style="margin-bottom: 20px;">
-                                📚 教材ライブラリ
-                            </button>
-
-                            <!-- 教材追加セクション -->
-                            <div class="upload-section-compact">
-                                <!-- PDF/テキスト/URL切り替えタブ -->
-                                <div class="input-mode-tabs-compact">
-                                    <button class="mode-tab-compact active" data-mode="text">📝 テキスト</button>
-                                    <button class="mode-tab-compact" data-mode="pdf">📄 PDF</button>
-                                    <button class="mode-tab-compact" data-mode="url">🌐 URL</button>
-                                </div>
-
-                                <!-- 画像生成オプション -->
-                                <div class="image-gen-option">
-                                    <label class="image-gen-toggle">
-                                        <input type="checkbox" id="image-gen-checkbox">
-                                        <span class="toggle-slider"></span>
-                                        <span class="toggle-label">🎨 画像付きクイズ</span>
-                                    </label>
-                                    <p class="image-gen-hint">各問題に記憶定着をサポートするユニークな画像を生成します（コスト削減モードON）</p>
-                                </div>
-
-                                <!-- テキストモード -->
-                                <div id="text-mode" class="input-mode active">
-                                    <textarea id="text-input" class="text-input-area-compact"
-                                        placeholder="学習したいテキストを貼り付け..."></textarea>
-                                    <button id="generate-from-text-btn"
-                                        class="btn btn-primary btn-large-compact">テキストからクイズを生成</button>
-                                </div>
-
-                                <!-- PDFモード -->
-                                <div id="pdf-mode" class="input-mode">
-                                    <div class="upload-box-compact">
-                                        <input type="file" id="pdf-input" accept=".pdf" hidden>
-                                        <label for="pdf-input" class="upload-label-compact">
-                                            <div class="upload-icon-compact">📄</div>
-                                            <div class="upload-text-compact">PDFファイルを選択</div>
-                                        </label>
-                                        <div id="file-name" class="file-name-compact"></div>
-                                    </div>
-                                    <button id="generate-btn" class="btn btn-primary btn-large-compact"
-                                        disabled>クイズを生成</button>
-                                </div>
-
-                                <!-- URLモード -->
-                                <div id="url-mode" class="input-mode">
-                                    <input type="url" id="url-input" class="url-input-compact"
-                                        placeholder="https://example.com/article">
-                                    <p class="url-hint">WebページのURLを入力してください。記事やブログなどのテキストコンテンツからクイズを生成します。</p>
-                                    <button id="generate-from-url-btn"
-                                        class="btn btn-primary btn-large-compact">URLからクイズを生成</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="home-tab-content" id="tab-report">
-                            <!-- 統計詳細 -->
-                            <div class="stats-detail-compact">
-                                <div class="stat-detail-card">
-                                    <div class="stat-detail-label">累計解答数</div>
-                                    <div class="stat-detail-value" id="total-answered">0</div>
-                                </div>
-                                <div class="stat-detail-card">
-                                    <div class="stat-detail-label">累計正解数</div>
-                                    <div class="stat-detail-value" id="total-correct">0</div>
-                                </div>
-                            </div>
-
-                            <!-- 興味チャート -->
-                            <div class="report-section">
-                                <h3 class="section-title-compact">学習の興味 (Top ジャンル)</h3>
-                                <div id="interests-chart-container" class="chart-container">
-                                    <!-- 棒グラフがここに表示されます -->
-                                </div>
-                            </div>
-
-                            <!-- 苦手分野アラート -->
-                            <div class="report-section">
-                                <h3 class="section-title-compact">苦手ポイント (要復習)</h3>
-                                <div id="weak-points-container" class="weak-points-grid">
-                                    <!-- 苦手カードがここに表示されます -->
-                                </div>
-                            </div>
-
-                            <!-- データリセットセクションは設定画面に移動しました -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 教材ライブラリ画面 -->
-                <div id="references-screen" class="screen">
-                    <div class="container">
-                        <div class="header">
-                            <button id="back-to-home-btn" class="btn-text">← 戻る</button>
-                            <h1 class="logo">📚 教材ライブラリ</h1>
-                        </div>
-
-                        <!-- フィルター・検索バー（コンパクト） -->
-                        <div class="filter-bar-compact">
-                            <input type="text" id="material-search" class="search-input-compact" placeholder="🔍 検索...">
-                            <select id="sort-filter" class="filter-select-compact">
-                                <option value="date-desc">新しい順</option>
-                                <option value="date-asc">古い順</option>
-                                <option value="title">タイトル順</option>
-                            </select>
-                            <div class="view-switcher">
-                                <button id="view-list-btn" class="view-btn active" data-view="list">📋 リスト</button>
-                                <button id="view-shared-btn" class="view-btn" data-view="shared">📤 共有済み</button>
-                                <button id="toggle-selection-btn" class="view-btn">✅ 選択</button>
-                            </div>
-                        </div>
-
-                        <!-- Action Bar for Selected Items -->
-                        <div id="selection-action-bar" class="selection-action-bar hidden">
-                            <span id="selected-count-label">0件選択中</span>
-                            <button id="delete-selected-btn" class="btn-danger-compact">🗑️ 選択した教材を削除</button>
-                        </div>
-
-                        <div id="references-list" class="materials-grid">
-                            <!-- 教材カード一覧がここに表示されます -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 教材詳細画面 -->
-                <div id="material-detail-screen" class="screen">
-                    <div class="container">
-                        <div class="header">
-                            <button id="back-to-library-btn" class="btn-text">← 教材ライブラリへ</button>
-                            <h1 class="material-detail-title" id="material-detail-title">教材詳細</h1>
-                        </div>
-
-                        <!-- 教材情報 -->
-                        <div class="material-info-card">
-                            <h2 id="detail-material-title"></h2>
-                            <p id="detail-material-summary" class="material-summary"></p>
-                            <div id="detail-material-tags" class="material-tags"></div>
-                            <div class="material-meta">
-                                <span id="detail-upload-date"></span>
-                                <span id="detail-question-count"></span>
-                            </div>
-                        </div>
-
-                        <!-- アクションボタン -->
-                        <div class="material-action-buttons" style="margin-bottom: 24px;">
-                            <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
-                                学習する
-                            </button>
-                            <button id="share-material-btn" class="btn btn-secondary btn-large">
-                                📤 シェア
-                            </button>
-                        </div>
-
-                        <!-- タブナビゲーション -->
-                        <div class="tab-navigation">
-                            <button class="tab-btn active" data-tab="overview">📊 概要</button>
-                            <button class="tab-btn" data-tab="questions">📝 問題一覧</button>
-                            <button class="tab-btn" data-tab="content">📄 本文</button>
-                        </div>
-
-                        <!-- タブコンテンツ -->
-                        <div class="tab-content active" id="tab-overview">
-                            <div class="overview-stats">
-                                <div class="stat-box">
-                                    <div class="stat-box-label">総問題数</div>
-                                    <div class="stat-box-value" id="overview-total"></div>
-                                </div>
-                                <div class="stat-box">
-                                    <div class="stat-box-label">平均正解率</div>
-                                    <div class="stat-box-value" id="overview-accuracy"></div>
-                                </div>
-                                <div class="stat-box">
-                                    <div class="stat-box-label">学習進捗</div>
-                                    <div class="stat-box-value" id="overview-progress"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-content" id="tab-questions">
-                            <div id="questions-list" class="questions-list">
-                                <!-- 問題一覧がここに表示されます -->
-                            </div>
-                        </div>
-
-                        <div class="tab-content" id="tab-content">
-                            <div id="material-content" class="material-content">
-                                <!-- 本文がここに表示されます（マークダウン形式） -->
-                            </div>
-                        </div>
-
-                        <div class="material-actions">
-                            <button id="delete-material-btn" class="btn btn-danger">
-                                🗑️ この教材を削除
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 復習待ち問題一覧画面 -->
-                <div id="review-list-screen" class="screen">
-                    <div class="container">
-                        <div class="header">
-                            <button id="back-to-home-from-review-btn" class="btn-text">← ホームへ</button>
-                            <h1 class="logo">📝 復習待ち問題</h1>
-                        </div>
-
-                        <div class="review-list-info">
-                            <p><span id="review-list-count">0</span>件の復習待ち問題があります</p>
-                        </div>
-
-                        <div id="review-questions-list" class="review-questions-list">
-                            <!-- 復習待ち問題一覧がここに表示されます -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 生成中画面 -->
-                <!-- 生成中画面 -->
-                <div id="generating-screen" class="screen hidden">
-                    <div class="container center">
-                        <div class="spinner"></div>
-                        <h2>クイズを生成中...</h2>
-                        <p id="generating-status">PDFを読み込んでいます...</p>
-                        <div class="progress-bar">
-                            <div id="progress-fill" class="progress-fill"></div>
-                        </div>
-
-                        <!-- Mini Review Section -->
-                        <div id="mini-review-container" class="mini-review-container hidden">
-                            <p class="mini-review-label">待っている間に復習しよう！</p>
-                            <div id="mini-review-card" class="mini-review-card">
-                                <!-- Dynamic Question Content -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- クイズ画面 -->
-                <div id="quiz-screen" class="screen">
-                    <div class="container">
-                        <div class="quiz-header">
-                            <button id="quit-btn" class="btn-secondary btn-icon">
-                                <span style="font-size: 1.2rem;">✕</span>
-                            </button>
-                            <div class="progress-bar-container">
-                                <div class="progress-info-text">
-                                    <span class="progress-label">Question</span>
-                                    <span class="progress-numbers">
-                                        <span id="current-question">1</span>
-                                        <span class="progress-divider">/</span>
-                                        <span id="total-quiz-questions">10</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="quiz-progress-grid" class="progress-grid">
-                        <!-- グリッド形式の進捗表示がここに動的に生成されます -->
-                    </div>
-
-                    <div class="difficulty-badge" id="difficulty-badge">基礎</div>
-
-                    <!-- タグを問題枠の外に配置 -->
-                    <div id="question-tags" class="question-tags-outside">
-                        <!-- 問題のタグがここに表示されます -->
-                    </div>
-
-                    <div class="question-card">
-                        <div id="question-image-container" class="quiz-image-container" style="display: none;">
-                            <img id="question-image" class="quiz-image" alt="Quiz illustration">
-                        </div>
-                        <h2 id="question-text" class="question-text"></h2>
-                        <div id="choices-container" class="choices-container"></div>
-                    </div>
-
-                    <!-- ナビゲーション（目立たない） -->
-                    <div id="quiz-navigation" class="quiz-navigation hidden">
-                        <button id="review-explanation-btn" class="nav-link">← 解説を読みなおす</button>
-                        <button id="skip-question-btn" class="nav-link">この問題をスキップ →</button>
-                    </div>
-
-                    <!-- フィードバックモーダル -->
-                    <div id="feedback-modal" class="feedback-modal hidden">
-                        <div class="feedback-modal-content">
-                            <div class="feedback-modal-header">
-                                <span id="feedback-icon"></span>
-                                <span id="feedback-title"></span>
-                            </div>
-                            <div id="feedback-explanation" class="feedback-modal-explanation"></div>
-
-                            <!-- Auto-advance toggle -->
-                            <div class="auto-advance-toggle" id="auto-advance-toggle-container">
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="auto-advance-checkbox">
-                                    <span class="toggle-slider-small"></span>
+                        <!-- PDFモード -->
+                        <div id="pdf-mode" class="input-mode">
+                            <div class="upload-box-compact">
+                                <input type="file" id="pdf-input" accept=".pdf" hidden>
+                                <label for="pdf-input" class="upload-label-compact">
+                                    <div class="upload-icon-compact">📄</div>
+                                    <div class="upload-text-compact">PDFファイルを選択</div>
                                 </label>
-                                <span class="toggle-text">次から自動で進む</span>
+                                <div id="file-name" class="file-name-compact"></div>
                             </div>
+                            <button id="generate-btn" class="btn btn-primary btn-large-compact" disabled>クイズを生成</button>
+                        </div>
 
-                            <div class="feedback-modal-timer" id="feedback-timer"></div>
-                            <button id="next-question-btn" class="btn-modal">次へ →</button>
+                        <!-- URLモード -->
+                        <div id="url-mode" class="input-mode">
+                            <input type="url" id="url-input" class="url-input-compact"
+                                placeholder="https://example.com/article">
+                            <p class="url-hint">WebページのURLを入力してください。記事やブログなどのテキストコンテンツからクイズを生成します。</p>
+                            <button id="generate-from-url-btn"
+                                class="btn btn-primary btn-large-compact">URLからクイズを生成</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="home-tab-content" id="tab-report">
+                    <!-- 統計詳細 -->
+                    <div class="stats-detail-compact">
+                        <div class="stat-detail-card">
+                            <div class="stat-detail-label">累計解答数</div>
+                            <div class="stat-detail-value" id="total-answered">0</div>
+                        </div>
+                        <div class="stat-detail-card">
+                            <div class="stat-detail-label">累計正解数</div>
+                            <div class="stat-detail-value" id="total-correct">0</div>
                         </div>
                     </div>
 
-                    <!-- 10秒休憩 -->
-                    <div id="break-screen" class="break-screen hidden">
-                        <div class="break-content">
-                            <h2>✨ 深呼吸してリラックス</h2>
-                            <p class="break-text">脳が情報を整理しています...</p>
-                            <div class="break-timer" id="break-timer">10</div>
+                    <!-- 興味チャート -->
+                    <div class="report-section">
+                        <h3 class="section-title-compact">学習の興味 (Top ジャンル)</h3>
+                        <div id="interests-chart-container" class="chart-container">
+                            <!-- 棒グラフがここに表示されます -->
+                        </div>
+                    </div>
+
+                    <!-- 苦手分野アラート -->
+                    <div class="report-section">
+                        <h3 class="section-title-compact">苦手ポイント (要復習)</h3>
+                        <div id="weak-points-container" class="weak-points-grid">
+                            <!-- 苦手カードがここに表示されます -->
+                        </div>
+                    </div>
+
+                    <!-- データリセットセクションは設定画面に移動しました -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 教材ライブラリ画面 -->
+        <div id="references-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-home-btn" class="btn-text">← 戻る</button>
+                    <h1 class="logo">📚 教材ライブラリ</h1>
+                </div>
+
+                <!-- フィルター・検索バー（コンパクト） -->
+                <div class="filter-bar-compact">
+                    <input type="text" id="material-search" class="search-input-compact" placeholder="🔍 検索...">
+                    <select id="sort-filter" class="filter-select-compact">
+                        <option value="date-desc">新しい順</option>
+                        <option value="date-asc">古い順</option>
+                        <option value="title">タイトル順</option>
+                    </select>
+                    <div class="view-switcher">
+                        <button id="view-list-btn" class="view-btn active" data-view="list">📋 リスト</button>
+                        <button id="view-shared-btn" class="view-btn" data-view="shared">📤 共有済み</button>
+                        <button id="toggle-selection-btn" class="view-btn">✅ 選択</button>
+                    </div>
+                </div>
+
+                <!-- Action Bar for Selected Items -->
+                <div id="selection-action-bar" class="selection-action-bar hidden">
+                    <span id="selected-count-label">0件選択中</span>
+                    <div class="selection-buttons">
+                        <button id="select-all-btn" class="btn-compact">全選択</button>
+                        <button id="delete-selected-btn" class="btn-danger-compact">🗑️ 削除</button>
+                    </div>
+                </div>
+
+                <div id="references-list" class="materials-grid">
+                    <!-- 教材カード一覧がここに表示されます -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 教材詳細画面 -->
+        <div id="material-detail-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-library-btn" class="btn-text">← 教材ライブラリへ</button>
+                    <h1 class="material-detail-title" id="material-detail-title">教材詳細</h1>
+                </div>
+
+                <!-- 教材情報 -->
+                <div class="material-info-card">
+                    <h2 id="detail-material-title"></h2>
+                    <p id="detail-material-summary" class="material-summary"></p>
+                    <div id="detail-material-tags" class="material-tags"></div>
+                    <div class="material-meta">
+                        <span id="detail-upload-date"></span>
+                        <span id="detail-question-count"></span>
+                    </div>
+                    <div id="detail-expiration-info" class="expiration-info"></div>
+                </div>
+
+                <!-- アクションボタン -->
+                <div class="material-action-buttons" style="margin-bottom: 24px;">
+                    <button id="start-material-quiz-btn" class="btn btn-primary btn-large">
+                        学習する
+                    </button>
+                    <button id="share-material-btn" class="btn btn-secondary btn-large">
+                        📤 シェア
+                    </button>
+                </div>
+
+                <!-- タブナビゲーション -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="overview">📊 概要</button>
+                    <button class="tab-btn" data-tab="questions">📝 問題一覧</button>
+                    <button class="tab-btn" data-tab="content">📄 元原稿</button>
+                </div>
+
+                <!-- タブコンテンツ -->
+                <div class="tab-content active" id="tab-overview">
+                    <div class="overview-stats">
+                        <div class="stat-box">
+                            <div class="stat-box-label">総問題数</div>
+                            <div class="stat-box-value" id="overview-total"></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">平均正解率</div>
+                            <div class="stat-box-value" id="overview-accuracy"></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-box-label">学習進捗</div>
+                            <div class="stat-box-value" id="overview-progress"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-questions">
+                    <div id="questions-list" class="questions-list">
+                        <!-- 問題一覧がここに表示されます -->
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-content">
+                    <div id="material-content" class="material-content">
+                        <!-- 本文がここに表示されます（マークダウン形式） -->
+                    </div>
+                </div>
+
+                <div class="material-actions">
+                    <button id="delete-material-btn" class="btn btn-danger">
+                        🗑️ この教材を削除
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 復習待ち問題一覧画面 -->
+        <div id="review-list-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-home-from-review-btn" class="btn-text">← ホームへ</button>
+                    <h1 class="logo">📝 復習待ち問題</h1>
+                </div>
+
+                <div class="review-list-info">
+                    <p><span id="review-list-count">0</span>件の復習待ち問題があります</p>
+                </div>
+
+                <div id="review-questions-list" class="review-questions-list">
+                    <!-- 復習待ち問題一覧がここに表示されます -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 生成中画面 -->
+        <!-- 生成中画面 -->
+        <div id="generating-screen" class="screen hidden">
+            <div class="container center">
+                <div class="spinner"></div>
+                <h2>クイズを生成中...</h2>
+                <p id="generating-status">PDFを読み込んでいます...</p>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+
+                <!-- Mini Review Section -->
+                <div id="mini-review-container" class="mini-review-container hidden">
+                    <p class="mini-review-label">待っている間に復習しよう！</p>
+                    <div id="mini-review-card" class="mini-review-card">
+                        <!-- Dynamic Question Content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- クイズ画面 -->
+        <div id="quiz-screen" class="screen">
+            <div class="container">
+                <div class="quiz-header">
+                    <button id="quit-btn" class="btn-secondary btn-icon">
+                        <span style="font-size: 1.2rem;">✕</span>
+                    </button>
+                    <div class="progress-bar-container">
+                        <div class="progress-info-text">
+                            <span class="progress-label">Question</span>
+                            <span class="progress-numbers">
+                                <span id="current-question">1</span>
+                                <span class="progress-divider">/</span>
+                                <span id="total-quiz-questions">10</span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 結果画面 -->
-            <div id="result-screen" class="screen">
-                <div class="container center">
-                    <div class="result-icon" id="result-icon">🎉</div>
-                    <h1 id="result-title">素晴らしい!</h1>
-                    <p id="result-message"></p>
+            <div id="quiz-progress-grid" class="progress-grid">
+                <!-- グリッド形式の進捗表示がここに動的に生成されます -->
+            </div>
 
-                    <div class="result-stats">
-                        <div class="result-stat">
-                            <div class="result-stat-label">正解数</div>
-                            <div class="result-stat-value">
-                                <span id="correct-count">0</span> / <span id="result-total">10</span>
-                            </div>
-                        </div>
-                        <div class="result-stat">
-                            <div class="result-stat-label">正解率</div>
-                            <div class="result-stat-value" id="result-accuracy">0%</div>
-                        </div>
+            <div class="difficulty-badge" id="difficulty-badge">基礎</div>
+
+            <!-- タグを問題枠の外に配置 -->
+            <div id="question-tags" class="question-tags-outside">
+                <!-- 問題のタグがここに表示されます -->
+            </div>
+
+            <div class="question-card">
+                <div id="question-image-container" class="quiz-image-container" style="display: none;">
+                    <img id="question-image" class="quiz-image" alt="Quiz illustration">
+                </div>
+                <h2 id="question-text" class="question-text"></h2>
+                <div id="choices-container" class="choices-container"></div>
+            </div>
+
+            <!-- ナビゲーション（目立たない） -->
+            <div id="quiz-navigation" class="quiz-navigation hidden">
+                <button id="review-explanation-btn" class="nav-link">← 解説を読みなおす</button>
+                <button id="skip-question-btn" class="nav-link">この問題をスキップ →</button>
+            </div>
+
+            <!-- フィードバックモーダル -->
+            <div id="feedback-modal" class="feedback-modal hidden">
+                <div class="feedback-modal-content">
+                    <div class="feedback-modal-header">
+                        <span id="feedback-icon"></span>
+                        <span id="feedback-title"></span>
+                    </div>
+                    <div id="feedback-explanation" class="feedback-modal-explanation"></div>
+
+                    <!-- Auto-advance toggle -->
+                    <div class="auto-advance-toggle" id="auto-advance-toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-advance-checkbox">
+                            <span class="toggle-slider-small"></span>
+                        </label>
+                        <span class="toggle-text">次から自動で進む</span>
                     </div>
 
-                    <div class="result-actions">
-                        <button id="continue-btn" class="btn btn-primary btn-large">続ける</button>
-                        <button id="home-btn" class="btn btn-secondary">ホームへ</button>
-                    </div>
+                    <div class="feedback-modal-timer" id="feedback-timer"></div>
+                    <button id="next-question-btn" class="btn-modal">次へ →</button>
                 </div>
             </div>
 
-            <!-- 設定モーダル (Unified Settings) -->
-            <div id="settings-modal" class="modal hidden">
-                <div class="modal-content settings-modal-content">
-                    <div class="modal-header">
-                        <h2>⚙️ 設定</h2>
-                        <button id="close-settings-modal" class="btn-close">✕</button>
+            <!-- 10秒休憩 -->
+            <div id="break-screen" class="break-screen hidden">
+                <div class="break-content">
+                    <h2>✨ 深呼吸してリラックス</h2>
+                    <p class="break-text">脳が情報を整理しています...</p>
+                    <div class="break-timer" id="break-timer">10</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結果画面 -->
+    <div id="result-screen" class="screen">
+        <div class="container center">
+            <div class="result-icon" id="result-icon">🎉</div>
+            <h1 id="result-title">素晴らしい!</h1>
+            <p id="result-message"></p>
+
+            <div class="result-stats">
+                <div class="result-stat">
+                    <div class="result-stat-label">正解数</div>
+                    <div class="result-stat-value">
+                        <span id="correct-count">0</span> / <span id="result-total">10</span>
                     </div>
+                </div>
+                <div class="result-stat">
+                    <div class="result-stat-label">正解率</div>
+                    <div class="result-stat-value" id="result-accuracy">0%</div>
+                </div>
+            </div>
 
-                    <div class="settings-tabs">
-                        <button class="settings-tab-btn active" data-tab="general">一般 / API</button>
-                        <button class="settings-tab-btn" data-tab="prompts">プロンプト編集</button>
-                        <button class="settings-tab-btn" data-tab="data">データ管理</button>
-                    </div>
+            <div class="result-actions">
+                <button id="continue-btn" class="btn btn-primary btn-large">続ける</button>
+                <button id="home-btn" class="btn btn-secondary">ホームへ</button>
+            </div>
+        </div>
+    </div>
 
-                    <!-- General Tab (API Key) -->
-                    <div id="settings-tab-general" class="settings-tab-content active">
-                        <div class="setting-group">
-                            <label class="setting-label">OpenAI APIキー</label>
-                            <p class="setting-desc">クイズ生成に使用するAPIキーを設定します。</p>
-                            <div class="api-key-input-container">
-                                <input type="password" id="settings-api-key-input" class="input" placeholder="sk-...">
-                                <button id="toggle-api-key-visibility" class="btn-icon">👁️</button>
-                            </div>
-                        </div>
+    <!-- 設定画面 (Unified Settings) -->
+    <div id="settings-screen" class="screen">
+        <div class="container">
+            <div class="header-compact">
+                <h1 class="logo-compact">⚙️ 設定</h1>
+            </div>
 
-                        <!-- Google API Key -->
-                        <div class="setting-group">
-                            <label class="setting-label">Google APIキー (Nano Banana Pro)</label>
-                            <p class="setting-desc">Nano Banana Pro (Imagen 3) 用のAPIキー。</p>
-                            <div class="api-key-input-container">
-                                <input type="password" id="settings-google-api-key-input" class="input"
-                                    placeholder="AI...">
-                                <button id="toggle-google-api-key-visibility" class="btn-icon">👁️</button>
-                            </div>
-                        </div>
+            <div class="settings-tabs">
+                <button class="settings-tab-btn active" data-tab="general">一般 / API</button>
+                <button class="settings-tab-btn" data-tab="prompts">プロンプト編集</button>
+                <button class="settings-tab-btn" data-tab="data">データ管理</button>
+            </div>
 
-                        <!-- Image Model Selection -->
-                        <div class="setting-group">
-                            <label class="setting-label">画像生成モデル</label>
-                            <div class="static-value">Google Nano Banana Pro (推奨)</div>
-                            <!-- DALL-E 3 removed as per request -->
-                        </div>
-
-                        <div class="setting-actions">
-                            <button id="save-general-settings-btn" class="btn btn-primary btn-full-width">設定を保存</button>
-                        </div>
-                        <p class="api-key-status" id="api-key-status-msg"></p>
+            <!-- General Tab (API Key) -->
+            <div id="settings-tab-general" class="settings-tab-content active">
+                <div class="setting-group">
+                    <label class="setting-label">OpenAI APIキー</label>
+                    <p class="setting-desc">クイズ生成に使用するAPIキーを設定します。</p>
+                    <div class="api-key-input-container">
+                        <input type="password" id="settings-api-key-input" class="input" placeholder="sk-...">
+                        <button id="toggle-api-key-visibility" class="btn-icon">👁️</button>
                     </div>
                 </div>
 
-                <!-- Prompts Tab (Customization) -->
-                <div id="settings-tab-prompts" class="settings-tab-content">
-                    <div class="alert-box info">
-                        <p>クイズ生成の挙動をカスタマイズできます。<br>
-                            プロンプトのフォーマットは自動で最適化され、以下の設定が反映されます。</p>
-                    </div>
-
-                    <div class="setting-group">
-                        <label class="setting-label">対象レベル・読者</label>
-                        <p class="setting-desc">誰に向けたクイズにするかを指定します</p>
-                        <input type="text" id="setting-target-level" class="input"
-                            placeholder="例: 中学生、TOEIC 600点、ビジネス初級、5歳児" style="width: 100%;">
-                    </div>
-
-                    <div class="setting-group">
-                        <label class="setting-label">追加の指示（こだわり）</label>
-                        <p class="setting-desc">雰囲気や文体、特に重視することなどを自由に指示できます</p>
-                        <textarea id="setting-custom-instructions" class="prompt-textarea"
-                            placeholder="例: 関西弁で、スパルタに、ユーモアを交えて" style="min-height: 100px;"></textarea>
-                    </div>
-
-                    <div class="setting-actions-footer">
-                        <button id="reset-prompts-btn" class="btn btn-secondary">リセット</button>
-                        <button id="save-prompts-btn" class="btn btn-primary">設定を保存</button>
+                <!-- Google API Key -->
+                <div class="setting-group">
+                    <label class="setting-label">Google APIキー (Nano Banana Pro)</label>
+                    <p class="setting-desc">Nano Banana Pro (Imagen 3) 用のAPIキー。</p>
+                    <div class="api-key-input-container">
+                        <input type="password" id="settings-google-api-key-input" class="input" placeholder="AI...">
+                        <button id="toggle-google-api-key-visibility" class="btn-icon">👁️</button>
                     </div>
                 </div>
 
-                <!-- Data Management Tab -->
-                <div id="settings-tab-data" class="settings-tab-content">
-                    <div class="setting-group danger-zone">
-                        <h3>🗑️ データの全消去</h3>
-                        <p>学習履歴、保存した問題、設定をすべて削除して初期状態に戻します。</p>
-                        <button id="settings-reset-data-btn" class="btn btn-danger">すべてのデータをリセット</button>
+                <!-- Image Model Selection -->
+                <div class="setting-group">
+                    <label class="setting-label">画像生成モデル</label>
+                    <div class="static-value">Google Nano Banana Pro (推奨)</div>
+                    <!-- DALL-E 3 removed as per request -->
+                </div>
+
+                <div class="setting-actions">
+                    <button id="save-general-settings-btn" class="btn btn-primary btn-full-width">設定を保存</button>
+                </div>
+                <p class="api-key-status" id="api-key-status-msg"></p>
+            </div>
+        </div>
+
+        <!-- Prompts Tab (Customization) -->
+        <div id="settings-tab-prompts" class="settings-tab-content">
+            <div class="alert-box info">
+                <p>クイズ生成の挙動をカスタマイズできます。<br>
+                    プロンプトのフォーマットは自動で最適化され、以下の設定が反映されます。</p>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">対象レベル・読者</label>
+                <p class="setting-desc">誰に向けたクイズにするかを指定します</p>
+                <input type="text" id="setting-target-level" class="input" placeholder="例: 中学生、TOEIC 600点、ビジネス初級、5歳児"
+                    style="width: 100%;">
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">追加の指示（こだわり）</label>
+                <p class="setting-desc">雰囲気や文体、特に重視することなどを自由に指示できます</p>
+                <textarea id="setting-custom-instructions" class="prompt-textarea" placeholder="例: 関西弁で、スパルタに、ユーモアを交えて"
+                    style="min-height: 100px;"></textarea>
+            </div>
+
+            <div class="setting-actions-footer">
+                <button id="reset-prompts-btn" class="btn btn-secondary">リセット</button>
+                <button id="save-prompts-btn" class="btn btn-primary">設定を保存</button>
+            </div>
+        </div>
+
+        <!-- Data Management Tab -->
+        <div id="settings-tab-data" class="settings-tab-content">
+            <div class="settings-section">
+                <h3>データ管理</h3>
+                <p class="settings-description">目的に応じてデータを削除・リセットできます。</p>
+
+                <div class="data-management-grid">
+                    <!-- Stats Reset -->
+                    <div class="setting-card">
+                        <div class="setting-card-icon">📊</div>
+                        <div class="setting-card-content">
+                            <div class="setting-card-title">学習記録をリセット</div>
+                            <div class="setting-card-desc">正解率や連続学習記録をリセットして、最初からやり直します。</div>
+                        </div>
+                        <button id="btn-reset-stats" class="btn btn-secondary btn-sm">リセット</button>
+                    </div>
+
+                    <!-- Materials Reset -->
+                    <div class="setting-card">
+                        <div class="setting-card-icon">📚</div>
+                        <div class="setting-card-content">
+                            <div class="setting-card-title">教材をすべて削除</div>
+                            <div class="setting-card-desc">保存した教材や問題をすべて削除して、ライブラリを空にします。</div>
+                        </div>
+                        <button id="btn-reset-materials" class="btn btn-danger btn-sm">削除</button>
+                    </div>
+
+                    <!-- Factory Reset -->
+                    <div class="setting-card danger-zone">
+                        <div class="setting-card-icon">⚠️</div>
+                        <div class="setting-card-content">
+                            <div class="setting-card-title">アプリを完全初期化</div>
+                            <div class="setting-card-desc">すべてのデータを消去して、アプリをインストール直後の状態に戻します。</div>
+                        </div>
+                        <button id="btn-reset-all" class="btn btn-danger">初期化</button>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
     </div>
 
     <!-- 共有モーダル -->
@@ -717,6 +745,35 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div id="delete-modal" class="modal hidden">
+        <div class="modal-content delete-modal-content">
+            <div class="modal-header">
+                <h2>🗑️ 教材を削除</h2>
+                <button id="close-delete-modal" class="btn-close">✕</button>
+            </div>
+            <div class="delete-modal-body">
+                <p>「<span id="delete-modal-title"></span>」を削除しますか？</p>
+                <div class="delete-options">
+                    <button id="delete-device-btn" class="delete-option-btn device">
+                        <span class="delete-icon">📱</span>
+                        <div class="delete-option-text">
+                            <div class="delete-option-title">この端末から削除</div>
+                            <div class="delete-option-desc">クラウドには残ります。他の端末では引き続き利用できます。</div>
+                        </div>
+                    </button>
+                    <button id="delete-cloud-btn" class="delete-option-btn cloud">
+                        <span class="delete-icon">☁️</span>
+                        <div class="delete-option-text">
+                            <div class="delete-option-title">完全に削除</div>
+                            <div class="delete-option-desc">クラウドと全端末から削除されます。この操作は取り消せません。</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Generation Settings Modal -->

@@ -309,9 +309,9 @@ export const GachaEngine = {
    * デバッグ用：生成されるスタイルをプレビュー
    */
   preview: (keyword, category, count = 5) => {
-    console.log(`\n=== ガチャプレビュー: "${keyword}" (${category}) ===\n`);
+
     for (let i = 0; i < count; i++) {
-      console.log(`${i + 1}: ${GachaEngine.generate(keyword, category)}`);
+
     }
   }
 };

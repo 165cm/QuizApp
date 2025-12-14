@@ -22,7 +22,9 @@ export function startQuiz() {
     appState.selectedAnswer = null;
 
     initProgressGrid();
+    initProgressGrid();
     showScreen('quiz-screen');
+    document.body.classList.add('quiz-active');
 
     // Update counters
     document.getElementById('current-question').textContent = '1';
@@ -241,6 +243,7 @@ function finishQuiz() {
         showCertificate();
         // playSuccessSound(); // Maybe? Or only for high score?
     } else {
+        document.body.classList.remove('quiz-active');
         showScreen('result-screen');
         const { correct, total } = appState.currentSession;
         document.getElementById('correct-count').textContent = correct;

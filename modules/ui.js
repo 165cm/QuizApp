@@ -59,10 +59,11 @@ export function updateMaterialSelectUI() {
     const currentValue = select.value;
     select.innerHTML = '<option value="all">全ての問題からランダム</option><option value="review-priority">復習待ち優先</option>';
 
-    // Sort by recent
-    const materials = [...appState.materials].sort((a, b) =>
-        new Date(b.uploadDate) - new Date(a.uploadDate)
-    ).slice(0, 10);
+    // Sort by recent (and exclude deleted)
+    const materials = appState.materials
+        .filter(m => !m.deleted_at)
+        .sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
+        .slice(0, 10);
 
     materials.forEach(material => {
         const option = document.createElement('option');
@@ -191,21 +192,8 @@ function renderNextMiniQuestion() {
     if (!floatingContainer) {
         floatingContainer = document.createElement('div');
         floatingContainer.id = 'mini-review-floating';
-        floatingContainer.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 1.5rem;
-            max-width: 500px;
-            width: 90%;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        `;
+        floatingContainer.id = 'mini-review-floating';
+        // Styles moved to CSS (#mini-review-floating)
         document.body.appendChild(floatingContainer);
     }
 

@@ -1,6 +1,6 @@
 
 import { appState } from './modules/state.js';
-import { loadData, saveApiKey, resetAllData } from './modules/storage.js';
+import { loadData, saveApiKey, resetAllData, cleanupOldImages } from './modules/storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, updateReportUI } from './modules/ui.js';
 import { generateQuizFromText, generateQuizFromUrl, extractTextFromPDF, generateMaterialMetadata, generateQuestionsWithAI, generateImagesForQuestions, updateGeneratingStatus, regenerateImages, closePreviewAndGoHome } from './modules/api.js';
 import { startQuiz } from './modules/game.js';
@@ -8,12 +8,12 @@ import { initLibrary, showMaterialsLibrary } from './modules/library.js';
 import { showReviewList } from './modules/review.js';
 import { checkForSharedCertificate, checkForSharedMaterial, copyShareURL, generateQRCode } from './modules/share.js';
 import { initAuth, signInWithGoogle, signOut } from './modules/auth.js';
-import { initSettings } from './modules/settings.js';
+import { initSettings, updateSettingsUI } from './modules/settings.js';
 
 // Initialize
 let pendingGenContext = null; // Stores data for generation pending customization
 document.addEventListener('DOMContentLoaded', async () => {
-    loadData();
+    loadData().then(() => cleanupOldImages()); // Load data then cleanup old images
     initAuth(); // Initialize Supabase auth
 
     // Check for shared content (async for Supabase fetch)
@@ -38,20 +38,58 @@ export function initHomeScreen() {
     updateStatsUI();
     updateMaterialSelectUI();
     showScreen('home-screen');
+    updateNavActiveState('home', 'start');
+}
+
+// Helper to update global nav active state
+function updateNavActiveState(screen, tab = null) {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.screen === screen) {
+            if (tab && item.dataset.tab === tab) {
+                item.classList.add('active');
+            } else if (!tab && !item.dataset.tab) {
+                item.classList.add('active');
+            }
+        }
+    });
 }
 
 function setupEventListeners() {
-    // Navigation
-    document.querySelectorAll('.home-tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.home-tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
-            e.target.classList.add('active');
-            const tabId = e.target.dataset.tab;
-            document.getElementById(`tab-${tabId}`).classList.add('active');
+    // Global Navigation
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
 
-            if (tabId === 'report') {
-                updateReportUI();
+            const screen = e.target.closest('[data-screen]')?.dataset.screen;
+            const tab = e.target.closest('[data-tab]')?.dataset.tab;
+
+            // Action handling removed as settings is now a screen
+            // Update active state
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            item.classList.add('active');
+
+            if (screen === 'home') {
+                updateStatsUI();
+                updateMaterialSelectUI();
+                showScreen('home-screen');
+                if (tab) {
+                    // Switch to specific tab
+                    document.querySelectorAll('.home-tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`tab-${tab}`)?.classList.add('active');
+
+                    if (tab === 'report') {
+                        updateReportUI();
+                    }
+                }
+            } else if (screen === 'references') {
+                showMaterialsLibrary();
+                showScreen('references-screen');
+                updateNavActiveState('references');
+            } else if (screen === 'settings') {
+                updateSettingsUI();
+                showScreen('settings-screen');
+                updateNavActiveState('settings');
             }
         });
     });
@@ -70,7 +108,6 @@ function setupEventListeners() {
     document.getElementById('start-quiz-btn')?.addEventListener('click', startQuiz);
 
     // Library & Review
-    document.getElementById('manage-references-btn')?.addEventListener('click', showMaterialsLibrary);
     document.getElementById('review-count-card')?.addEventListener('click', showReviewList);
     document.getElementById('back-to-home-btn')?.addEventListener('click', initHomeScreen);
     document.getElementById('back-to-home-from-review-btn')?.addEventListener('click', initHomeScreen);
@@ -224,7 +261,9 @@ function setupEventListeners() {
         const file = document.getElementById('pdf-input').files[0];
         if (!file) return;
         if (!appState.apiKey) {
-            document.getElementById('settings-modal').classList.remove('hidden');
+            alert('設定画面からAPIキーを入力してください。');
+            showScreen('settings-screen');
+            updateSettingsUI();
             return;
         }
         openGenSettings({ type: 'pdf', file: file });
@@ -238,7 +277,9 @@ function setupEventListeners() {
             return;
         }
         if (!appState.apiKey) {
-            document.getElementById('settings-modal').classList.remove('hidden');
+            alert('設定画面からAPIキーを入力してください。');
+            showScreen('settings-screen');
+            updateSettingsUI(); // Ensure UI is fresh
             return;
         }
         openGenSettings({ type: 'text', text: text });

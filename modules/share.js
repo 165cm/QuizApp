@@ -89,8 +89,7 @@ function getSupabase() {
 
 // Generate short share URL using Supabase storage
 export async function generateShareURL(materialId) {
-    console.log('🔵 generateShareURL called for:', materialId);
-    console.log('🔵 Current materials:', appState.materials.map(m => m.id));
+
 
     const material = appState.materials.find(m => m.id === materialId);
     if (!material) {
@@ -122,7 +121,7 @@ export async function generateShareURL(materialId) {
     const supabase = getSupabase();
     if (supabase) {
         try {
-            console.log('🔵 Attempting to save to Supabase...');
+
             // Save to Supabase and get short ID
             const { data, error } = await supabase
                 .from('shared_quizzes')
@@ -138,7 +137,7 @@ export async function generateShareURL(materialId) {
                 throw error;
             }
 
-            console.log('🟢 Supabase save success, ID:', data.id);
+
             // Fix: Use origin + pathname to avoid including hash (#) which breaks query param parsing
             const baseURL = window.location.origin + window.location.pathname;
             return `${baseURL}?s=${data.id}`;
@@ -155,8 +154,7 @@ export async function generateShareURL(materialId) {
 }
 
 export async function checkForSharedMaterial(startQuizCallback) {
-    console.log('🔵 checkForSharedMaterial called');
-    console.log('🔵 Current URL:', window.location.href);
+
 
     const urlParams = new URLSearchParams(window.location.search);
     let shortId = urlParams.get('s');
@@ -164,13 +162,13 @@ export async function checkForSharedMaterial(startQuizCallback) {
 
     // Robust check: if params are missing in search, check hash (for #?s=... case)
     if (!shortId && !share && window.location.hash.includes('?')) {
-        console.log('🔵 Checking hash for params:', window.location.hash);
+
         const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
         shortId = hashParams.get('s');
         share = hashParams.get('share');
     }
 
-    console.log('🔵 Detected params - shortId:', shortId, 'share:', !!share);
+
 
     // Check for Supabase short ID first (?s=)
     if (shortId) {
@@ -178,7 +176,7 @@ export async function checkForSharedMaterial(startQuizCallback) {
             const supabase = getSupabase();
             if (!supabase) throw new Error('Supabase not available');
 
-            console.log('🔵 Fetching from Supabase for ID:', shortId);
+
             const { data, error } = await supabase
                 .from('shared_quizzes')
                 .select('material_data, questions_data')
@@ -187,7 +185,7 @@ export async function checkForSharedMaterial(startQuizCallback) {
 
             if (error) throw error;
 
-            console.log('🟢 Data fetched from Supabase');
+
             const shareData = {
                 material: data.material_data,
                 questions: data.questions_data
@@ -406,7 +404,7 @@ export async function shareChallenge(score, total, rankLabel, rankImageIndex = n
             });
         } catch (e) {
             // User cancelled or error
-            console.log('Share API error or cancelled', e);
+
             // Fallback: Copy to clipboard if share failed/cancelled
             if (e.name !== 'AbortError') {
                 copyToClipboard(`${text}\n${url}`);
