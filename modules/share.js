@@ -350,3 +350,126 @@ export async function generateQRCode(materialId) {
         saveMaterials();
     }
 }
+
+// --- Viral / Challenge Share ---
+
+export async function shareChallenge(score, total, rankLabel, rankImageIndex = null, imageUrl = null) {
+    // 1. Get Material ID (from current or from quiz questions)
+    let materialId = appState.currentMaterialId;
+    if (!materialId && appState.currentQuiz && appState.currentQuiz.length > 0) {
+        materialId = appState.currentQuiz[0].materialId;
+    }
+
+    // 2. Prepare Text
+    const title = materialId ?
+        appState.materials.find(m => m.id === materialId)?.title : 'クイズ';
+    const accuracy = Math.round((score / total) * 100);
+
+    // Impactful Text
+    let text = `🔥 【挑戦状】\n「${title || 'クイズ'}」で正解率 ${accuracy}% (${score}/${total}) を叩き出しました！\n\nランク: ${rankLabel} 🏆\n\nあなたはこのスコアを超えられますか？\n#QuizApp #Challenge\n`;
+
+    // 3. Prepare URL (may fail if no material)
+    let url = '';
+    if (materialId) {
+        try {
+            url = await generateShareURL(materialId);
+        } catch (e) {
+            console.warn('URL generation failed', e);
+        }
+    }
+
+
+    // 3. Prepare Image (if available)
+    let filesArray = [];
+    if (imageUrl && rankImageIndex !== null && navigator.share) {
+        try {
+            const blob = await cropGridImage(imageUrl, rankImageIndex);
+            if (blob) {
+                const file = new File([blob], "rank_result.png", { type: "image/png" });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    filesArray = [file];
+                }
+            }
+        } catch (e) {
+            console.error('Image processing failed for share:', e);
+        }
+    }
+
+    // 4. Execute Share
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'クイズの挑戦状',
+                text: text,
+                url: url, // Some apps ignore URL if files are present, so append to text?
+                files: filesArray.length > 0 ? filesArray : undefined
+            });
+        } catch (e) {
+            // User cancelled or error
+            console.log('Share API error or cancelled', e);
+            // Fallback: Copy to clipboard if share failed/cancelled
+            if (e.name !== 'AbortError') {
+                copyToClipboard(`${text}\n${url}`);
+                alert('リンクとメッセージをコピーしました！SNSに貼り付けて共有してください。');
+            }
+        }
+    } else {
+        // Fallback for Desktop
+        const shareText = `${text}\n${url}`;
+        copyToClipboard(shareText);
+        alert('リンクとメッセージをクリップボードにコピーしました！\n(画像は保存して別途投稿してください)');
+    }
+}
+
+function copyToClipboard(text) {
+    // Use old-style method as fallback when document isn't focused
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    } catch (e) {
+        console.error('Clipboard fallback failed', e);
+        // Last resort: prompt user to copy manually
+        prompt('以下をコピーしてください:', text);
+    }
+}
+
+
+// Helper to crop 4x3 grid panel
+async function cropGridImage(base64Url, index) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const totalCols = 4;
+            const totalRows = 3;
+
+            // Calculate panel size
+            const panelW = img.width / totalCols;
+            const panelH = img.height / totalRows;
+
+            canvas.width = panelW;
+            canvas.height = panelH;
+
+            const ctx = canvas.getContext('2d');
+            const col = index % totalCols;
+            const row = Math.floor(index / totalCols);
+
+            ctx.drawImage(
+                img,
+                col * panelW, row * panelH, panelW, panelH, // Source
+                0, 0, panelW, panelH // Dest
+            );
+
+            canvas.toBlob(blob => resolve(blob), 'image/png');
+        };
+        img.onerror = () => resolve(null);
+        img.src = base64Url;
+    });
+}
