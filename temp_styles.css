@@ -1,0 +1,70 @@
+/* Material Detail Improvements */
+.material-content {
+    line-height: 1.8;
+    color: var(--text-primary);
+    padding: 16px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    /* Markdown Styles */
+}
+
+.material-content h1,
+.material-content h2,
+.material-content h3 {
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.material-content p {
+    margin-bottom: 1.2em;
+}
+
+.material-content ul,
+.material-content ol {
+    margin-left: 1.5em;
+    margin-bottom: 1.2em;
+}
+
+.material-content li {
+    margin-bottom: 0.5em;
+}
+
+.material-content blockquote {
+    border-left: 4px solid var(--accent-primary);
+    padding-left: 1em;
+    margin: 1.2em 0;
+    color: var(--text-secondary);
+}
+
+/* Expiration Info */
+.expiration-info {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--warning-color, #f59e0b);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.expiration-info.expired {
+    color: var(--danger-color, #ef4444);
+}
+
+/* Tag Styles */
+.material-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.tag {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}

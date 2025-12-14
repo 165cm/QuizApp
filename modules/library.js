@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { saveMaterials, saveQuestions, deleteMaterialFromCloud } from './storage.js';
+import { saveMaterials, saveQuestions, deleteMaterialFromCloud, deleteFromDevice, deleteFromCloud } from './storage.js';
 import { showScreen } from './ui.js';
 import { shuffleArray } from './utils.js';
 
@@ -8,6 +8,7 @@ let currentView = 'list';
 
 let isSelectionMode = false;
 let selectedMaterialIds = new Set();
+let isBulkDeleteMode = false;
 
 export function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -93,6 +94,7 @@ function createMaterialListItem(material) {
                 <span class="list-stat-item">📝 ${questionCount}問</span>
                 <span class="list-stat-item">📊 ${accuracy}%</span>
             </div>
+            ${!isSelectionMode ? `<button class="btn-delete-inline" data-id="${material.id}" title="削除">🗑️</button>` : ''}
         </div>
     `;
 
@@ -132,6 +134,15 @@ function createMaterialListItem(material) {
         });
     }
 
+    // Handle inline delete button click
+    const deleteBtn = item.querySelector('.btn-delete-inline');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showDeleteModal(material.id);
+        });
+    }
+
     return item;
 }
 
@@ -146,23 +157,19 @@ export function toggleSelectionMode() {
     showMaterialsLibrary();
 }
 
+export function selectAllMaterials() {
+    // Select all visible materials
+    filteredMaterials.forEach(m => {
+        selectedMaterialIds.add(m.id);
+    });
+    showMaterialsLibrary();
+}
+
 export function deleteSelectedMaterials() {
     if (selectedMaterialIds.size === 0) return;
 
-    if (!confirm(`選択した ${selectedMaterialIds.size} 件の教材を削除しますか？\n\nこの操作は取り消せません。`)) return;
-
-    // Delete from Cloud for each selected material
-    selectedMaterialIds.forEach(id => deleteMaterialFromCloud(id));
-
-    appState.materials = appState.materials.filter(m => !selectedMaterialIds.has(m.id));
-    saveMaterials();
-    appState.questions = appState.questions.filter(q => !selectedMaterialIds.has(q.materialId));
-    saveQuestions();
-
-    selectedMaterialIds.clear();
-    isSelectionMode = false; // Exit mode after delete
-    showMaterialsLibrary();
-    alert('削除しました');
+    // Show modal for bulk delete
+    showBulkDeleteModal();
 }
 
 function applyFiltersAndSort() {
@@ -200,6 +207,108 @@ export function deleteMaterial(materialId) {
     alert(`教材「${material.title}」を削除しました`);
 }
 
+// Show delete modal with Kindle-style options
+let pendingDeleteMaterialId = null;
+
+export function showDeleteModal(materialId) {
+    const material = appState.materials.find(m => m.id === materialId);
+    if (!material) return;
+
+    pendingDeleteMaterialId = materialId;
+
+    const modal = document.getElementById('delete-modal');
+    const titleSpan = document.getElementById('delete-modal-title');
+
+    if (titleSpan) titleSpan.textContent = material.title;
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+}
+
+export function hideDeleteModal() {
+    const modal = document.getElementById('delete-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+    pendingDeleteMaterialId = null;
+    isBulkDeleteMode = false;
+}
+
+export function handleDeleteFromDevice() {
+    if (!pendingDeleteMaterialId) return;
+    deleteFromDevice(pendingDeleteMaterialId);
+    hideDeleteModal();
+    showMaterialsLibrary();
+}
+
+export async function handleDeleteFromCloud() {
+    if (!pendingDeleteMaterialId) return;
+    await deleteFromCloud(pendingDeleteMaterialId);
+    hideDeleteModal();
+    showMaterialsLibrary();
+}
+
+// Bulk delete modal
+export function showBulkDeleteModal() {
+    if (selectedMaterialIds.size === 0) return;
+
+    isBulkDeleteMode = true;
+
+    const modal = document.getElementById('delete-modal');
+    const titleSpan = document.getElementById('delete-modal-title');
+
+    if (titleSpan) titleSpan.textContent = `${selectedMaterialIds.size}件の教材`;
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+}
+
+export function handleBulkDeleteFromDevice() {
+    if (!isBulkDeleteMode) return;
+
+    selectedMaterialIds.forEach(id => deleteFromDevice(id));
+
+    selectedMaterialIds.clear();
+    isSelectionMode = false;
+    isBulkDeleteMode = false;
+    hideDeleteModal();
+    showMaterialsLibrary();
+}
+
+export async function handleBulkDeleteFromCloud() {
+    if (!isBulkDeleteMode) return;
+
+    for (const id of selectedMaterialIds) {
+        await deleteFromCloud(id);
+    }
+
+    selectedMaterialIds.clear();
+    isSelectionMode = false;
+    isBulkDeleteMode = false;
+    hideDeleteModal();
+    showMaterialsLibrary();
+}
+
+// Updated handlers to support both single and bulk delete
+export function handleDeleteDeviceClick() {
+    if (isBulkDeleteMode) {
+        handleBulkDeleteFromDevice();
+    } else {
+        handleDeleteFromDevice();
+    }
+}
+
+export async function handleDeleteCloudClick() {
+    if (isBulkDeleteMode) {
+        await handleBulkDeleteFromCloud();
+    } else {
+        await handleDeleteFromCloud();
+    }
+}
+
 export function showMaterialDetail(materialId) {
     const material = appState.materials.find(m => m.id === materialId);
     if (!material) return;
@@ -214,6 +323,24 @@ export function showMaterialDetail(materialId) {
     const questions = appState.questions.filter(q => q.materialId === materialId);
     document.getElementById('detail-upload-date').textContent = `📅 ${dateStr}`;
     document.getElementById('detail-question-count').textContent = `📝 ${questions.length}問`;
+
+    // Expiration Info
+    const uploadDate = new Date(material.uploadDate);
+    const expirationDate = new Date(uploadDate);
+    expirationDate.setDate(uploadDate.getDate() + 30);
+    const now = new Date();
+    const daysLeft = Math.ceil((expirationDate - now) / (1000 * 60 * 60 * 24));
+
+    const expInfoEl = document.getElementById('detail-expiration-info');
+    if (expInfoEl) {
+        if (daysLeft > 0) {
+            expInfoEl.textContent = `⚠️ 画像の保存期限: ${expirationDate.toLocaleDateString()} (あと${daysLeft}日)`;
+            expInfoEl.classList.remove('expired');
+        } else {
+            expInfoEl.textContent = `⚠️ 画像の保存期限: 終了しました (画像は自動削除されました)`;
+            expInfoEl.classList.add('expired');
+        }
+    }
 
     updateOverviewTab(material, questions);
     updateQuestionsTab(material, questions);
@@ -319,11 +446,22 @@ function updateContentTab(material) {
     // Configure marked options if needed (optional)
     // marked.use({ breaks: true }); // Enable line breaks
 
-    try {
-        container.innerHTML = marked.parse(content);
-    } catch (e) {
-        console.error('Markdown parsing failed', e);
-        container.textContent = content; // Fallback
+    // Configure marked options
+    if (typeof marked !== 'undefined') {
+        marked.use({
+            breaks: true, // Enable line breaks
+            gfm: true     // Enable GitHub Flavored Markdown
+        });
+        try {
+            container.innerHTML = marked.parse(content);
+        } catch (e) {
+            console.error('Markdown parsing failed', e);
+            container.textContent = content;
+        }
+    } else {
+        // Fallback if marked is not loaded
+        container.style.whiteSpace = 'pre-wrap';
+        container.textContent = content;
     }
 }
 
@@ -354,7 +492,13 @@ export function initLibrary() {
 
     // Selection Mode Listeners
     document.getElementById('toggle-selection-btn')?.addEventListener('click', toggleSelectionMode);
+    document.getElementById('select-all-btn')?.addEventListener('click', selectAllMaterials);
     document.getElementById('delete-selected-btn')?.addEventListener('click', deleteSelectedMaterials);
+
+    // Delete Modal Listeners
+    document.getElementById('close-delete-modal')?.addEventListener('click', hideDeleteModal);
+    document.getElementById('delete-device-btn')?.addEventListener('click', handleDeleteDeviceClick);
+    document.getElementById('delete-cloud-btn')?.addEventListener('click', handleDeleteCloudClick);
 
     // Tab switching in detail view
     document.querySelectorAll('.tab-btn').forEach(btn => {

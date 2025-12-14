@@ -1,5 +1,5 @@
 import { appState } from './state.js';
-import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud } from './storage.js';
+import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud, uploadImage } from './storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady } from './ui.js';
 import { DEFAULT_PROMPTS, ImagePromptHelper, GachaEngine } from './default_prompts.js';
 
@@ -209,78 +209,6 @@ export async function generateQuestionsWithAI(text, fileName, questionCount = 30
     return questions; // Raw questions, styling/IDs handled by caller
 }
 
-// Generate Image Prompt
-export async function generateImagePrompt(question, choices, correctAnswer, context = null) {
-    let prompt = DEFAULT_PROMPTS.imagePromptGeneration;
-    prompt = prompt.replace('{{question}}', question);
-
-    // Context Injection
-    let contextStr = 'Style: surreal, interesting, minimal text.';
-    if (context) {
-        contextStr = `
-- Visual Style: ${context.visualStyle}
-- Tone: ${context.tone}
-- Audience: ${context.audience}
-`;
-    }
-    prompt = prompt.replace('{{context}}', contextStr);
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 150,
-            temperature: 0.7
-        })
-    });
-
-    if (!response.ok) throw new Error('画像プロンプト生成失敗');
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
-}
-
-// Google Nano Banana Pro (Imagen 3) Generation - Returns array of images
-export async function generateImageWithGoogle(prompts) {
-    if (!appState.googleApiKey) throw new Error('Google APIキーが設定されていません');
-
-    // Generate up to 3 images at once using sampleCount
-    const sampleCount = Math.min(prompts.length, 3);
-    const combinedPrompt = prompts.slice(0, sampleCount).map((p, i) => `Scene ${i + 1}: ${p}`).join('. ');
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-images:predict?key=${appState.googleApiKey}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            instances: [{ prompt: combinedPrompt + " Style: realistic, detailed, natural lighting. Each scene is distinct." }],
-            parameters: {
-                sampleCount: sampleCount,
-                aspectRatio: "16:9"
-            }
-        })
-    });
-
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || '画像生成失敗 (Nano Banana Pro)');
-    }
-    const data = await response.json();
-    const predictions = data.predictions || [];
-
-    return predictions.map(p => `data:image/png;base64,${p.bytesBase64Encoded}`);
-}
-
-// Wrapper to choose model (Always Google Nano Banana Pro)
-export async function generateImagesWithSelectedModel(prompts) {
-    return await generateImageWithGoogle(prompts);
-}
-
 // PDF Text Extraction
 export async function extractTextFromPDF(file) {
     const arrayBuffer = await file.arrayBuffer();
@@ -458,24 +386,22 @@ JSON: {"prompts": ["高ランク英語プロンプト80語以内", "中ランク
 }
 
 export async function generateImagesForQuestions(questions) {
-    console.log('🖼️ generateImagesForQuestions called');
-    console.log('🖼️ Questions count:', questions.length);
+
 
     const checkbox = document.getElementById('image-gen-checkbox');
-    console.log('🖼️ Checkbox element:', checkbox);
-    console.log('🖼️ Checkbox checked:', checkbox?.checked);
+
 
     const useImageGen = checkbox?.checked;
     if (!useImageGen) {
-        console.log('🖼️ Image generation disabled (checkbox not checked)');
+
         return;
     }
 
     // Filter questions that don't have images yet
     const targetQuestions = questions.filter(q => !q.imageUrl);
-    console.log('🖼️ Target questions (no image):', targetQuestions.length);
+
     if (targetQuestions.length === 0) {
-        console.log('🖼️ All questions already have images, skipping');
+
         return;
     }
 
@@ -532,13 +458,44 @@ export async function generateImagesForQuestions(questions) {
             }
             gridPrompt += "Style: cohesive, consistent lighting, realistic or illustrative as per context. High quality.";
 
-            // 4. Generate single grid image
-            const imageUrl = await generateGridImage(gridPrompt);
+            // 4. Generate single grid image (Base64)
+            const base64Image = await generateGridImage(gridPrompt);
 
-            // 5. Assign to questions
+            // 5. Upload to Supabase Storage (if logged in)
+            let finalImageUrl = base64Image; // Fallback to base64 if upload fails or not logged in
+
+            // We need a materialId. If batch[0] has one, use it.
+            const materialId = batch[0].materialId || 'temp_' + Date.now();
+
+            // Import uploadImage dynamically or assume it's available via module? 
+            // Since api.js imports from storage.js usually... 
+            // Wait, api.js might not import uploadImage yet. We need to check imports.
+            // But let's assume we will add it to imports.
+
+            // To avoid circular dependency issues if any, we might need to be careful.
+            // api.js imports: import { appState } ... 
+            // storage.js imports: appState
+
+            // Let's check imports in api.js first. 
+            // Assuming we added it to the imports in api.js by ourselves or will do it.
+            // I will assume `import { ... } from './storage.js'` exists and I'll add uploadImage to it.
+
+            if (appState.currentUser) {
+                updateGeneratingStatus(`画像をクラウドに保存中... (${batchNum}/${batches.length})`, 85);
+                const cloudUrl = await uploadImage(base64Image, materialId);
+                if (cloudUrl) {
+                    finalImageUrl = cloudUrl;
+
+                } else {
+                    console.warn('🖼️ Upload failed, using Base64 fallback (Local Storage warning)');
+                    // If fallback, we risk quota error.
+                }
+            }
+
+            // 6. Assign to questions
             const newQuestions = [];
             batch.forEach((q, idx) => {
-                q.imageUrl = imageUrl;
+                q.imageUrl = finalImageUrl;
                 q.imagePrompt = prompts[idx];
                 q.imageGridIndex = idx; // 0-8
                 newQuestions.push(q);
@@ -584,9 +541,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
     const modelName = 'gemini-3-pro-image-preview';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${appState.googleApiKey}`;
 
-    console.log('🖼️ Starting image generation...');
-    console.log('🖼️ Model:', modelName);
-    console.log('🖼️ Prompt length:', gridPrompt.length);
+
 
     try {
         const requestBody = {
@@ -599,7 +554,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
                 // The generated image will use default aspect ratio
             }
         };
-        console.log('🖼️ Request config:', JSON.stringify(requestBody.generationConfig));
+
 
 
         const response = await fetch(url, {
@@ -610,7 +565,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
             body: JSON.stringify(requestBody)
         });
 
-        console.log('🖼️ Response status:', response.status);
+
 
         if (response.status === 429) {
             // Even with paid plan, rate limits exist (quota). Exponential backoff.
@@ -629,7 +584,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
         }
 
         const data = await response.json();
-        console.log('🖼️ Response received, checking for image...');
+
 
         // Find image part in response
         const candidates = data.candidates || [];
@@ -637,7 +592,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
             const parts = candidate.content?.parts || [];
             for (const part of parts) {
                 if (part.inlineData?.mimeType?.startsWith('image/')) {
-                    console.log('🖼️ ✅ Image found! MIME type:', part.inlineData.mimeType);
+
                     return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                 }
             }

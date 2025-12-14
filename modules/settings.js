@@ -1,148 +1,135 @@
 import { appState } from './state.js';
-import { saveApiKey, saveSettings, resetAllData } from './storage.js';
+import { saveApiKey, saveSettings, resetAllData, resetUserStats, resetMaterials } from './storage.js';
+
+let apiKeyInput, googleKeyInput, toggleVisibilityBtn, toggleGoogleVisibilityBtn;
+let levelInput, instructionsInput;
+let tabs, tabContents;
 
 export function initSettings() {
-    const modal = document.getElementById('settings-modal');
-    const settingsBtn = document.getElementById('settings-btn');
-    const closeBtn = document.getElementById('close-settings-modal');
+    // Select Elements
+    apiKeyInput = document.getElementById('settings-api-key-input');
+    toggleVisibilityBtn = document.getElementById('toggle-api-key-visibility');
+    googleKeyInput = document.getElementById('settings-google-api-key-input');
+    toggleGoogleVisibilityBtn = document.getElementById('toggle-google-api-key-visibility');
 
-    // Tab Elements
-    const tabs = document.querySelectorAll('.settings-tab-btn');
-    const tabContents = document.querySelectorAll('.settings-tab-content');
+    levelInput = document.getElementById('setting-target-level');
+    instructionsInput = document.getElementById('setting-custom-instructions');
 
-    // --- General Tab Elements ---
-    const apiKeyInput = document.getElementById('settings-api-key-input');
-    const toggleVisibilityBtn = document.getElementById('toggle-api-key-visibility');
+    tabs = document.querySelectorAll('.settings-tab-btn');
+    tabContents = document.querySelectorAll('.settings-tab-content');
 
-    const googleKeyInput = document.getElementById('settings-google-api-key-input');
-    const toggleGoogleVisibilityBtn = document.getElementById('toggle-google-api-key-visibility');
-    const modelSelect = document.getElementById('setting-image-model');
+    // Button Listeners
+    document.getElementById('save-general-settings-btn')?.addEventListener('click', saveGeneralSettings);
+    document.getElementById('save-prompts-btn')?.addEventListener('click', savePromptsSettings);
+    document.getElementById('reset-prompts-btn')?.addEventListener('click', resetPromptsSettings);
 
-    const saveGeneralBtn = document.getElementById('save-general-settings-btn');
+    // Data Management Listeners
+    document.getElementById('btn-reset-stats')?.addEventListener('click', handleResetStats);
+    document.getElementById('btn-reset-materials')?.addEventListener('click', handleResetMaterials);
+    document.getElementById('btn-reset-all')?.addEventListener('click', handleResetAll);
 
-    // --- Prompts Tab Elements ---
-    const levelInput = document.getElementById('setting-target-level');
-    const instructionsInput = document.getElementById('setting-custom-instructions');
-    const savePromptsBtn = document.getElementById('save-prompts-btn');
-    const resetPromptsBtn = document.getElementById('reset-prompts-btn');
-
-    // --- Data Tab Elements ---
-    const resetDataBtn = document.getElementById('settings-reset-data-btn');
-
-
-    // Open Modal
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => {
-            loadSettingsToUI();
-            modal.classList.remove('hidden');
-            modal.style.display = 'block';
-        });
-    }
-
-    // Close Modal
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            modal.style.display = 'none';
-        });
-    }
+    // Visibility Toggles
+    setupVisibilityToggle(apiKeyInput, toggleVisibilityBtn);
+    setupVisibilityToggle(googleKeyInput, toggleGoogleVisibilityBtn);
 
     // Tab Switching
     tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-
-            tab.classList.add('active');
-            const targetId = `settings-tab-${tab.dataset.tab}`;
-            document.getElementById(targetId).classList.add('active');
-        });
+        tab.addEventListener('click', () => switchTab(tab));
     });
 
-    // API Key Visbility Toggle
-    const toggleVisibility = (input, btn) => {
-        if (!input || !btn) return;
-        btn.addEventListener('click', () => {
-            if (input.type === 'password') {
-                input.type = 'text';
-                btn.textContent = '🔒';
-            } else {
-                input.type = 'password';
-                btn.textContent = '👁️';
-            }
-        });
+    // Initial Load
+    updateSettingsUI();
+}
+
+export function updateSettingsUI() {
+    // General
+    if (apiKeyInput) apiKeyInput.value = appState.apiKey || '';
+    if (googleKeyInput) googleKeyInput.value = appState.googleApiKey || '';
+
+    // Prompts
+    const settings = appState.quizSettings || { targetLevel: '一般', customInstructions: '' };
+    if (levelInput) levelInput.value = settings.targetLevel || '一般';
+    if (instructionsInput) instructionsInput.value = settings.customInstructions || '';
+}
+
+function switchTab(tab) {
+    tabs.forEach(t => t.classList.remove('active'));
+    tabContents.forEach(c => c.classList.remove('active'));
+
+    tab.classList.add('active');
+    const targetId = `settings-tab-${tab.dataset.tab}`;
+    const targetContent = document.getElementById(targetId);
+    if (targetContent) targetContent.classList.add('active');
+}
+
+function setupVisibilityToggle(input, btn) {
+    if (!input || !btn) return;
+    btn.addEventListener('click', () => {
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🔒';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁️';
+        }
+    });
+}
+
+// Action Functions
+function saveGeneralSettings() {
+    const openAiKey = apiKeyInput.value.trim();
+    const googleKey = googleKeyInput ? googleKeyInput.value.trim() : '';
+
+    appState.apiKey = openAiKey;
+    appState.googleApiKey = googleKey;
+
+    localStorage.setItem('openai_api_key', openAiKey);
+    localStorage.setItem('google_api_key', googleKey);
+    saveApiKey(openAiKey);
+
+    alert('一般設定を保存しました。');
+}
+
+async function savePromptsSettings() {
+    appState.quizSettings = {
+        targetLevel: levelInput.value.trim() || '一般',
+        customInstructions: instructionsInput.value.trim()
     };
-    toggleVisibility(apiKeyInput, toggleVisibilityBtn);
-    toggleVisibility(googleKeyInput, toggleGoogleVisibilityBtn);
 
-    // Save General Settings
-    if (saveGeneralBtn) {
-        saveGeneralBtn.addEventListener('click', () => {
-            const openAiKey = apiKeyInput.value.trim();
-            const googleKey = googleKeyInput ? googleKeyInput.value.trim() : '';
-            const selectedModel = modelSelect ? modelSelect.value : 'nano-banana';
+    await saveSettings(); // Save to local and cloud
+    alert('プロンプト設定を保存・同期しました！');
+}
 
-            // Update State
-            appState.apiKey = openAiKey;
-            appState.googleApiKey = googleKey;
-            appState.imageModel = selectedModel;
-
-            // Save to LocalStorage
-            localStorage.setItem('openai_api_key', openAiKey);
-            localStorage.setItem('google_api_key', googleKey);
-            localStorage.setItem('image_model', selectedModel);
-
-            // Also call storage saveApiKey to ensure compatibility if it does extra stuff (it just saves to LS usually)
-            saveApiKey(openAiKey);
-
-            alert('一般設定を保存しました。');
-        });
+function resetPromptsSettings() {
+    if (confirm('設定をデフォルトに戻しますか？')) {
+        levelInput.value = '一般';
+        instructionsInput.value = '';
     }
+}
 
-    // Save Prompts
-    if (savePromptsBtn) {
-        savePromptsBtn.addEventListener('click', async () => {
-            appState.quizSettings = {
-                targetLevel: levelInput.value.trim() || '一般',
-                customInstructions: instructionsInput.value.trim()
-            };
-
-            await saveSettings(); // Save to local and cloud
-            alert('プロンプト設定を保存・同期しました！');
-        });
+async function handleResetStats() {
+    if (confirm('学習記録（正解率や連続日数）をリセットしますか？\n教材データはそのまま残ります。')) {
+        await resetUserStats();
+        alert('学習記録をリセットしました。');
+        // UI stats update might be needed if visible, but reload is safer or updateUI
+        updateSettingsUI(); // Doesn't show stats though
+        // Maybe refresh home if needed?
+        window.location.reload();
     }
+}
 
-    // Reset Prompts
-    if (resetPromptsBtn) {
-        resetPromptsBtn.addEventListener('click', () => {
-            if (confirm('設定をデフォルトに戻しますか？')) {
-                levelInput.value = '一般';
-                instructionsInput.value = '';
-            }
-        });
+async function handleResetMaterials() {
+    if (confirm('すべての教材と問題を削除しますか？\nこの操作は元に戻せません。')) {
+        await resetMaterials();
+        alert('ライブラリを空にしました。');
+        window.location.reload();
     }
+}
 
-    // Reset Data
-    if (resetDataBtn) {
-        resetDataBtn.addEventListener('click', async () => {
-            if (confirm('本当にすべてのデータを削除しますか？\nこの操作は元に戻せません。')) {
-                await resetAllData();
-                alert('データをリセットしました。ページを再読み込みします。');
-                window.location.reload();
-            }
-        });
-    }
-
-    // Load Settings Function
-    function loadSettingsToUI() {
-        // General
-        if (apiKeyInput) apiKeyInput.value = appState.apiKey || '';
-        if (googleKeyInput) googleKeyInput.value = appState.googleApiKey || '';
-        if (modelSelect) modelSelect.value = appState.imageModel || 'nano-banana';
-
-        // Prompts
-        const settings = appState.quizSettings || { targetLevel: '一般', customInstructions: '' };
-        if (levelInput) levelInput.value = settings.targetLevel || '一般';
-        if (instructionsInput) instructionsInput.value = settings.customInstructions || '';
+async function handleResetAll() {
+    if (confirm('本当にすべてのデータを削除して初期化しますか？\nこの操作は元に戻せません。')) {
+        await resetAllData();
+        alert('アプリを初期化しました。');
+        window.location.reload();
     }
 }
