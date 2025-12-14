@@ -171,10 +171,15 @@ function setupEventListeners() {
                 const text = await extractTextFromPDF(pendingGenContext.file);
                 await generateQuizFromText(text, pendingGenContext.file.name, customSettings);
             } else if (pendingGenContext.type === 'text') {
+                showScreen('generating-screen');
+                updateGeneratingStatus('クイズを生成中...', 10);
                 await generateQuizFromText(pendingGenContext.text, 'テキスト入力', customSettings);
             } else if (pendingGenContext.type === 'url') {
+                showScreen('generating-screen');
+                updateGeneratingStatus('URLを読み込んでいます...', 10);
                 await generateQuizFromUrl(pendingGenContext.url, customSettings);
             }
+
         } catch (e) {
             console.error(e);
             alert('生成失敗: ' + e.message);

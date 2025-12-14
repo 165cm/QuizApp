@@ -1,7 +1,9 @@
 import { appState } from './state.js';
 import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud } from './storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady } from './ui.js';
-import { DEFAULT_PROMPTS } from './default_prompts.js';
+import { DEFAULT_PROMPTS, ImagePromptHelper, GachaEngine } from './default_prompts.js';
+
+
 
 export function updateGeneratingStatus(message, progress) {
     const statusEl = document.getElementById('generating-status');
@@ -242,9 +244,6 @@ export async function generateImagePrompt(question, choices, correctAnswer, cont
     return data.choices[0].message.content.trim();
 }
 
-// DALL-E Generation (Removed)
-// export async function generateImageWithDALLE(imagePrompt) { ... }
-
 // Google Nano Banana Pro (Imagen 3) Generation - Returns array of images
 export async function generateImageWithGoogle(prompts) {
     if (!appState.googleApiKey) throw new Error('Google APIキーが設定されていません');
@@ -363,25 +362,128 @@ export async function fetchTextFromUrl(url) {
     throw new Error(`URLの読み込みに失敗しました。以下の原因が考えられます：\n1. サイトがアクセスをブロックしている\n2. URLが間違っている\n3. プロキシサービスが混雑している\n\n別のURLを試すか、テキストを直接コピー＆ペーストしてください。`);
 }
 
-// Helper to generate prompts for questions
-async function generatePromptsForBatch(questions, context) {
-    const prompts = [];
-    for (const q of questions) {
-        const p = await generateImagePrompt(q.question, q.choices, q.choices[q.correctIndex], context);
-        prompts.push(p);
+// Helper to generate prompts for questions using GachaEngine (no API calls, variety!)
+function generatePromptsForBatch(questions, context) {
+    const category = context?.category || 'life';
+
+    // Use GachaEngine for varied, non-repetitive prompts
+    return GachaEngine.generateBatch(questions, category);
+}
+
+
+
+// Helper to generate Rank Image Ideas (コスプレ博士 template)
+async function generateRankPrompts(context) {
+    const topic = context ? context.topic : 'General Knowledge';
+    const sourceText = context ? context.sourceText?.substring(0, 500) : '';
+
+    const systemPrompt = `あなたは画像生成AIのプロンプト作成者です。
+以下のクイズソースを分析し、「コスプレ博士」キャラクターの画像生成プロンプトを3段階分作成してください。
+
+【クイズソース】
+テーマ: ${topic}
+${sourceText}
+
+【キャラクター固定設定】
+- 小柄な老博士（白衣、アインシュタイン風ボサボサ白髪、丸眼鏡、大きな鼻）
+- アートスタイル：Pixar風3DCGカートゥーン、明るくポップな色彩
+- 正方形構図、キャラクター中央配置
+
+【あなたのタスク】
+1. ソースからテーマを特定
+2. そのテーマを象徴するコスプレ衣装・小道具を決定
+3. 以下3段階のプロンプトを生成
+
+【ランク別ルール】
+■ 高ランク「神博士」(prompts[0])
+- 完璧すぎるコスプレ（本家超え、オーラ発光）
+- ドヤ顔、目がキラキラ
+- 背景：金色の光、紙吹雪、豪華
+
+■ 中ランク「一人前博士」(prompts[1])
+- コスプレ70%成功（惜しいポイントあり）
+- 少し自信ある表情
+- 背景：普通の明るさ、小さな拍手
+
+■ 低ランク「見習い博士」(prompts[2])
+- コスプレ失敗（サイズ合わない、アイテム逆さま、手作り感満載）
+- 困った表情、冷や汗
+- 背景：薄暗め、失敗を暗示
+
+【出力形式】
+JSON: {"prompts": ["高ランク英語プロンプト80語以内", "中ランク英語プロンプト80語以内", "低ランク英語プロンプト80語以内"]}`;
+
+    try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${appState.apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: 'You are a helpful assistant. Output JSON only.' },
+                    { role: 'user', content: systemPrompt }
+                ],
+                temperature: 0.8,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        if (!response.ok) throw new Error('Rank prompt gen API error');
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        const parsed = JSON.parse(content);
+
+        let results = [];
+        if (Array.isArray(parsed)) results = parsed;
+        else if (parsed.prompts) results = parsed.prompts;
+        else if (parsed.ranks) results = parsed.ranks;
+        else results = Object.values(parsed).slice(0, 3);
+
+        if (results.length < 3) throw new Error('Not enough rank prompts generated');
+        return results.slice(0, 3).map(r => r + " Pixar 3D cartoon style, square composition, vibrant colors.");
+
+    } catch (e) {
+        console.warn('Rank prompt gen failed, using fallback', e);
+        // Fallback with コスプレ博士 theme
+        return [
+            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in PERFECT ${topic} cosplay, glowing golden aura, confetti, triumphant pose, sparkling eyes, luxurious background.`,
+            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in 70% successful ${topic} cosplay, slight confident smile, subtle applause, bright background.`,
+            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in FAILED ${topic} cosplay, costume too big, items upside down, sweating, embarrassed expression, dim background.`,
+        ];
     }
-    return prompts;
 }
 
 export async function generateImagesForQuestions(questions) {
-    const useImageGen = document.getElementById('image-gen-checkbox')?.checked;
-    if (!useImageGen) return;
+    console.log('🖼️ generateImagesForQuestions called');
+    console.log('🖼️ Questions count:', questions.length);
+
+    const checkbox = document.getElementById('image-gen-checkbox');
+    console.log('🖼️ Checkbox element:', checkbox);
+    console.log('🖼️ Checkbox checked:', checkbox?.checked);
+
+    const useImageGen = checkbox?.checked;
+    if (!useImageGen) {
+        console.log('🖼️ Image generation disabled (checkbox not checked)');
+        return;
+    }
 
     // Filter questions that don't have images yet
     const targetQuestions = questions.filter(q => !q.imageUrl);
-    if (targetQuestions.length === 0) return;
+    console.log('🖼️ Target questions (no image):', targetQuestions.length);
+    if (targetQuestions.length === 0) {
+        console.log('🖼️ All questions already have images, skipping');
+        return;
+    }
 
-    // Batch into groups of 9 (3x3 grid)
+
+    // Group into batches of 9 (since we have 12 slots: 9 questions + 3 ranks)
+    // If we have more than 9 questions, we might need multiple sheets, but effectively we only support 10-question quizzes usually.
+    // For simplicity, let's take the first 9 questions for the main grid. 10th+ will have to share or no image.
+    // Ideally we iterate.
     const BATCH_SIZE = 9;
     const batches = [];
     for (let i = 0; i < targetQuestions.length; i += BATCH_SIZE) {
@@ -395,38 +497,58 @@ export async function generateImagesForQuestions(questions) {
             batchNum++;
             updateGeneratingStatus(`画像を生成中... (${batchNum}/${batches.length})`, 80 + (batchNum / batches.length) * 15);
 
-            // 1. Generate prompts for this batch
-            // Retrieve context if available (attached to first question of batch or passed down? 
-            // Currently questions don't store the context object. 
-            // Hack: I need to pass context to generateImagesForQuestions logic.
-            // But generateImagesForQuestions is called separately. 
-            // I will modify generateImagesForQuestions to accept context or retrieve it from material?
-            // For now, let's assume no context for image regen unless I change signature.
-            // Wait, I can pass strict context in step 4 modification below.
-            const prompts = await generatePromptsForBatch(batch, questions[0].contextData);
+            // 1. Generate prompts for this batch (Questions)
+            // Retrieve context from first question if available
+            const context = batch[0].contextData || null;
+            const prompts = generatePromptsForBatch(batch, context);
 
-            // 2. Create Grid Prompt (3x3)
-            let gridPrompt = "Create a single image with a 3x3 grid layout (9 panels). Each panel contains a distinct illustration. IMPORTANT: Do NOT include any text, labels, numbers, or written characters in any panel. The image should be in 16:9 aspect ratio. Pure visual illustrations only. ";
+
+            // 2. Add Rank Prompts (3 slots) to make 12 total
+            // Rank S (High), Rank A (Mid), Rank B (Low)
+            // request dynamic humorous prompts from AI
+            let rankPrompts = [];
+            try {
+                rankPrompts = await generateRankPrompts(context);
+            } catch (err) {
+                console.warn('Rank prompt gen failed, using fallback', err);
+                const topic = context ? context.topic : 'Learning';
+                rankPrompts = [
+                    `Funny exaggerated illustration of 'Ultimate Master of ${topic}'. God-like figure, epic universe background. Text: 'GOD TIER'`,
+                    `Illustration of 'Smart Expert of ${topic}'. Professor looking confident with trophy. Text: 'EXPERT'`,
+                    `Funny illustration of 'Novice of ${topic}'. Confused cute character trying to understand. Text: 'NOVICE'`
+                ];
+            }
+            prompts.push(...rankPrompts);
+
+            // 3. Create Grid Prompt (4x3 = 12 panels)
+            let gridPrompt = "Create a single image with a 4x3 grid layout (12 panels). Each panel has white background with thin white separator lines between panels. The image should be in 16:9 aspect ratio (so each panel is roughly 4:3). Each panel contains a distinct centered illustration. ";
+
             prompts.forEach((p, idx) => {
                 gridPrompt += `Panel ${idx + 1}: ${p}. `;
             });
-            // Fill remaining panels if batch is smaller than 9
-            for (let i = prompts.length; i < 9; i++) {
+            // Fill remaining panels if batch is small (unlikely for 10q quiz but possible)
+            for (let i = prompts.length; i < 12; i++) {
                 gridPrompt += `Panel ${i + 1}: abstract minimalist pattern. `;
             }
-            gridPrompt += "Style: cohesive, consistent lighting, realistic. REMINDER: No text, no numbers, no labels anywhere in the image.";
+            gridPrompt += "Style: cohesive, consistent lighting, realistic or illustrative as per context. High quality.";
 
-            // 3. Generate single grid image
+            // 4. Generate single grid image
             const imageUrl = await generateGridImage(gridPrompt);
 
-            // 4. Assign to questions with grid index
+            // 5. Assign to questions
             const newQuestions = [];
             batch.forEach((q, idx) => {
                 q.imageUrl = imageUrl;
                 q.imagePrompt = prompts[idx];
-                q.imageGridIndex = idx; // 0-8 for grid position
+                q.imageGridIndex = idx; // 0-8
                 newQuestions.push(q);
             });
+
+            // Store Rank Image Indices in the questions? 
+            // Better: Store it in the material data? But `questions` are what we iterate.
+            // Let's store special `rankGridIndices` in the first question to retrieve later? 
+            // Or just convention: 9, 10, 11 are always Ranks if grid exists.
+            // We will rely on convention in game.js.
 
             // Force Cloud Sync for images (Prioritize Cloud)
             if (appState.currentUser) {
@@ -435,12 +557,11 @@ export async function generateImagesForQuestions(questions) {
                 }
             }
 
-            // Save locally (might fail if quota exceeded)
+            // Save locally
             try {
                 saveQuestions();
             } catch (quotaError) {
                 console.warn('Local Storage Quota Exceeded:', quotaError);
-                // Continue, as cloud save succeeded
             }
 
         } catch (e) {
@@ -463,23 +584,33 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
     const modelName = 'gemini-3-pro-image-preview';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${appState.googleApiKey}`;
 
+    console.log('🖼️ Starting image generation...');
+    console.log('🖼️ Model:', modelName);
+    console.log('🖼️ Prompt length:', gridPrompt.length);
+
     try {
+        const requestBody = {
+            contents: [{
+                parts: [{ text: gridPrompt }]
+            }],
+            generationConfig: {
+                responseModalities: ["IMAGE"]
+                // Note: imageGenerationConfig is not supported by gemini-3-pro-image-preview
+                // The generated image will use default aspect ratio
+            }
+        };
+        console.log('🖼️ Request config:', JSON.stringify(requestBody.generationConfig));
+
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: gridPrompt }]
-                }],
-                generationConfig: {
-                    responseModalities: ["IMAGE"]
-                    // Optional parameters for Nano Banana Pro if needed:
-                    // imageGenerationConfig: { sampleCount: 1, aspectRatio: "16:9" } 
-                }
-            })
+            body: JSON.stringify(requestBody)
         });
+
+        console.log('🖼️ Response status:', response.status);
 
         if (response.status === 429) {
             // Even with paid plan, rate limits exist (quota). Exponential backoff.
@@ -493,10 +624,12 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
 
         if (!response.ok) {
             const error = await response.json();
+            console.error('🖼️ API Error:', JSON.stringify(error));
             throw new Error(error.error?.message || '画像生成失敗 (Gemini)');
         }
 
         const data = await response.json();
+        console.log('🖼️ Response received, checking for image...');
 
         // Find image part in response
         const candidates = data.candidates || [];
@@ -504,17 +637,20 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
             const parts = candidate.content?.parts || [];
             for (const part of parts) {
                 if (part.inlineData?.mimeType?.startsWith('image/')) {
+                    console.log('🖼️ ✅ Image found! MIME type:', part.inlineData.mimeType);
                     return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                 }
             }
         }
 
+        console.error('🖼️ No image in response. Candidates:', JSON.stringify(candidates));
         throw new Error('画像データが取得できませんでした');
     } catch (e) {
-        console.error("Gemini Image Gen Error:", e);
+        console.error("🖼️ Gemini Image Gen Error:", e);
         throw e;
     }
 }
+
 
 export async function generateQuizFromText(text, sourceName, customSettings = null) {
     try {
@@ -664,14 +800,15 @@ export function showQuizPreview(material, questions) {
 
             if (q.imageUrl) {
                 if (q.imageGridIndex !== undefined && q.imageGridIndex >= 0) {
-                    const col = q.imageGridIndex % 3;
-                    const row = Math.floor(q.imageGridIndex / 3);
-                    const xPos = col * 50;
-                    const yPos = row * 50;
+                    // 4x3 grid (4 cols, 3 rows)
+                    const col = q.imageGridIndex % 4;
+                    const row = Math.floor(q.imageGridIndex / 4);
+                    const xPos = (col / 3) * 100; // 0, 33.33, 66.66, 100
+                    const yPos = (row / 2) * 100; // 0, 50, 100
                     imageContent = `
                         <div class="preview-image-sliced" style="
                             background-image: url('${q.imageUrl}');
-                            background-size: 315% 315%;
+                            background-size: 420% 315%;
                             background-position: ${xPos}% ${yPos}%;
                         "></div>
                      `;
@@ -687,6 +824,7 @@ export function showQuizPreview(material, questions) {
                 </div>
                 <div class="preview-question">Q${idx + 1}: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</div>
             `;
+
             grid.appendChild(card);
         });
         // Show regenerate button
@@ -702,6 +840,7 @@ export function showQuizPreview(material, questions) {
                 <span class="preview-q-number">Q${idx + 1}</span>
                 <span class="preview-q-text">${questionText}</span>
             `;
+
             grid.appendChild(item);
         });
         // Hide regenerate button for image-less quizzes

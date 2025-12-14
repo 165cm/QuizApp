@@ -2,7 +2,7 @@ import { appState } from './state.js';
 import { saveQuestions, saveUserStats, saveQuestionToCloud } from './storage.js';
 import { selectQuestionsForSession, updateQuestionStats } from './quiz.js';
 import { showScreen, initProgressGrid, updateProgressGridUI, markProgressCellUI } from './ui.js';
-import { showCertificate } from './share.js';
+import { showCertificate, shareChallenge } from './share.js';
 import { playCorrectSound, playIncorrectSound, playSuccessSound } from './audio.js';
 import { triggerConfetti } from './effects.js';
 
@@ -69,19 +69,20 @@ function displayQuestion() {
     img.style.display = 'none';
 
     if (q.imageUrl && q.imageGridIndex !== undefined) {
-        // Grid View (3x3 on 16:9 image)
+        // Grid View (4x3 on 16:9 image) - Updated for 12 panels
         imgContainer.style.display = 'block';
         imgContainer.classList.add('grid-mode');
         imgContainer.style.backgroundImage = `url(${q.imageUrl})`;
 
-        // Calculate position for 3x3 grid
-        const col = q.imageGridIndex % 3;
-        const row = Math.floor(q.imageGridIndex / 3);
-        const xPos = col * 50; // 0, 50, 100
-        const yPos = row * 50; // 0, 50, 100
+        // Calculate position for 4x3 grid
+        const col = q.imageGridIndex % 4;
+        const row = Math.floor(q.imageGridIndex / 4);
+        const xPos = (col / 3) * 100; // 0, 33.33, 66.66, 100
+        const yPos = (row / 2) * 100; // 0, 50, 100
 
         imgContainer.style.backgroundPosition = `${xPos}% ${yPos}%`;
-        imgContainer.style.backgroundSize = '315% 315%'; // Safe margin (zoom to crop edges)
+        imgContainer.style.backgroundSize = '420% 315%'; // 4 cols, 3 rows + 5% safe margin
+
     } else if (q.imageUrl) {
         // Standard single image
         img.src = q.imageUrl;
@@ -250,5 +251,81 @@ function finishQuiz() {
             playSuccessSound();
             triggerConfetti();
         }
+
+        // --- Rank & Challenge Logic ---
+        const accuracyKey = Math.round((correct / total) * 100);
+        let rankLabel = '見習い';
+        let rankImageIndex = 11; // Default Bed/Low
+        let rankColor = '#64748b';
+
+        if (accuracyKey >= 90) {
+            rankLabel = 'Sランク (最高)';
+            rankImageIndex = 9;
+            rankColor = '#fbbf24'; // Gold
+        } else if (accuracyKey >= 60) {
+            rankLabel = 'Aランク (優秀)';
+            rankImageIndex = 10;
+            rankColor = '#94a3b8'; // Silver
+        }
+
+        // Message update
+        const msgEl = document.getElementById('result-message');
+        msgEl.innerHTML = `<span style="color: ${rankColor}; font-weight: bold; font-size: 1.2rem;">${rankLabel}</span><br>お疲れ様でした！`;
+
+        // Inject Rank Image if available (replacing icon)
+        const iconEl = document.getElementById('result-icon');
+        const firstQ = appState.currentQuiz[0];
+        if (firstQ && firstQ.imageUrl && firstQ.imageGridIndex !== undefined) {
+            // Create a container for the rank image similar to quiz image
+            // We reuse the logic for 4x3 grid cropping via CSS
+            iconEl.innerHTML = '';
+            // Make it larger and 4:3 aspect ratio as requested
+            iconEl.style.width = '240px';
+            iconEl.style.height = '180px';
+            iconEl.style.borderRadius = '20px';
+            iconEl.style.background = `url(${firstQ.imageUrl})`;
+            iconEl.style.backgroundSize = '420% 315%'; // 5% safe margin
+
+            iconEl.style.margin = '0 auto 1.5rem auto'; // More space
+            iconEl.style.boxShadow = '0 15px 40px rgba(0,0,0,0.4)'; // Stronger shadow
+            iconEl.style.border = `4px solid ${rankColor}`; // Colored border matching rank
+
+            // Pos
+            const col = rankImageIndex % 4;
+            const row = Math.floor(rankImageIndex / 4);
+            const xPos = (col / 3) * 100;
+            const yPos = (row / 2) * 100;
+            iconEl.style.backgroundPosition = `${xPos}% ${yPos}%`;
+            iconEl.textContent = ''; // Remove emoji
+        } else {
+            // Reset to default emoji if no image
+            iconEl.style = ''; // Reset inline styles
+            iconEl.textContent = accuracyKey === 100 ? '👑' : accuracyKey >= 60 ? '🎉' : '💪';
+        }
+
+        // Add Challenge Share Button
+        const actionsDiv = document.querySelector('#result-screen .result-actions');
+        // Check if button exists
+        let challengeBtn = document.getElementById('challenge-share-btn');
+        if (!challengeBtn) {
+            challengeBtn = document.createElement('button');
+            challengeBtn.id = 'challenge-share-btn';
+            challengeBtn.className = 'btn btn-success btn-large';
+            challengeBtn.style.background = 'linear-gradient(135deg, #f59e0b, #ef4444)'; // Fiery
+            challengeBtn.innerHTML = '🔥 挑戦状をシェア';
+            // Insert before Home button
+            const homeBtn = document.getElementById('home-btn');
+            actionsDiv.insertBefore(challengeBtn, homeBtn);
+        }
+
+        // Update listener
+        // Clone to remove old listeners
+        const newChallengeBtn = challengeBtn.cloneNode(true);
+        challengeBtn.parentNode.replaceChild(newChallengeBtn, challengeBtn);
+
+        newChallengeBtn.onclick = () => {
+            const imgUrl = (firstQ && firstQ.imageUrl) ? firstQ.imageUrl : null;
+            shareChallenge(correct, total, rankLabel, rankImageIndex, imgUrl);
+        };
     }
 }
