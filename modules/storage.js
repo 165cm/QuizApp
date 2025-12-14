@@ -122,7 +122,18 @@ export async function syncWithSupabase() {
                 appState.materials = appState.materials.filter(m => String(m.id) !== String(rm.id));
                 appState.questions = appState.questions.filter(q => q.materialId !== rm.id);
             } else if (!localMaterialIds.has(String(rm.id))) {
-                appState.materials.push(rm);
+                // New item from cloud → add to local with mapping
+                const localMat = {
+                    id: rm.id,
+                    title: rm.title,
+                    content: rm.content,
+                    summary: rm.summary || '',
+                    fileName: rm.source_name,
+                    uploadDate: rm.upload_date || rm.created_at || new Date().toISOString(),
+                    tags: rm.tags || [],
+                    deleted_at: null
+                };
+                appState.materials.push(localMat);
             }
         });
 
@@ -278,8 +289,10 @@ export async function saveMaterialToCloud(material) {
         user_id: appState.currentUser.id,
         title: material.title,
         content: material.content,
+        summary: material.summary || '',
         source_name: material.fileName,
-        // tags? schema didn't have tags... let's ignore for now or add to content?
+        upload_date: material.uploadDate,
+        tags: material.tags || []
     };
 
     const { error } = await supabase.from('materials').upsert(mData);
