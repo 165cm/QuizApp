@@ -131,7 +131,21 @@ export async function syncWithSupabase() {
         // PULL: Add server items missing locally
         (remoteQuestions || []).forEach(rq => {
             if (!localQuestionIds.has(String(rq.id))) {
-                appState.questions.push(rq);
+                // Map cloud format to local format
+                const localFormat = {
+                    id: rq.id,
+                    question: rq.question_text,  // Cloud uses question_text
+                    choices: rq.choices || [],
+                    correctIndex: rq.choices?.indexOf(rq.correct_answer) ?? 0,
+                    explanation: rq.explanation || '',
+                    materialId: rq.material_id,
+                    imageUrl: rq.image_url,
+                    imageGridIndex: rq.image_grid_index,
+                    reviewCount: rq.review_count || 0,
+                    lastReviewed: rq.last_reviewed,
+                    easeFactor: rq.ease_factor || 2.5
+                };
+                appState.questions.push(localFormat);
             } else {
                 // Merge learning progress (higher review_count wins)
                 const localQ = appState.questions.find(q => String(q.id) === String(rq.id));
@@ -142,6 +156,7 @@ export async function syncWithSupabase() {
                 }
             }
         });
+
 
         // PUSH: Upload local items missing on server
         const questionsToUpload = appState.questions.filter(q => !serverQuestionIds.has(String(q.id)));
