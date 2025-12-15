@@ -30,6 +30,12 @@ export function startQuiz() {
     document.getElementById('current-question').textContent = '1';
     document.getElementById('total-quiz-questions').textContent = questions.length;
 
+    // Hide Quit Button for Shared Quiz to prevent accidental exit
+    const quitBtn = document.getElementById('quit-btn');
+    if (quitBtn) {
+        quitBtn.style.display = appState.isSharedQuiz ? 'none' : 'flex';
+    }
+
     displayQuestion();
 }
 
@@ -83,7 +89,7 @@ function displayQuestion() {
         const yPos = (row / 2) * 100; // 0, 50, 100
 
         imgContainer.style.backgroundPosition = `${xPos}% ${yPos}%`;
-        imgContainer.style.backgroundSize = '420% 315%'; // 4 cols, 3 rows + 5% safe margin
+        imgContainer.style.backgroundSize = '420% 315%'; // 5% Zoom to trim edges
 
     } else if (q.imageUrl) {
         // Standard single image
@@ -134,7 +140,6 @@ function calculateStreak() {
     // Simplified streak logic or import from utils if complex.
     // Original app.js had logic. For now just increment if played today?
     // app.js updateStreak was complex. I'll rely on storage's initial value + increments.
-    // Ideally duplicate app.js 'updateStreak' logic into 'stats.js' and call it.
     // but simplified is OK for now.
     return appState.userStats.streak;
 }
@@ -258,17 +263,17 @@ function finishQuiz() {
         // --- Rank & Challenge Logic ---
         const accuracyKey = Math.round((correct / total) * 100);
         let rankLabel = '見習い';
-        let rankImageIndex = 11; // Default Bed/Low
         let rankColor = '#64748b';
+        let finalRankImageIndex = 11; // Default Bed/Low
 
         if (accuracyKey >= 90) {
             rankLabel = 'Sランク (最高)';
-            rankImageIndex = 9;
             rankColor = '#fbbf24'; // Gold
+            finalRankImageIndex = 9;
         } else if (accuracyKey >= 60) {
             rankLabel = 'Aランク (優秀)';
-            rankImageIndex = 10;
             rankColor = '#94a3b8'; // Silver
+            finalRankImageIndex = 10;
         }
 
         // Message update
@@ -278,30 +283,101 @@ function finishQuiz() {
         // Inject Rank Image if available (replacing icon)
         const iconEl = document.getElementById('result-icon');
         const firstQ = appState.currentQuiz[0];
+
+        // Clean up previous
+        iconEl.innerHTML = '';
+        iconEl.style = ''; // Reset inline styles
+        iconEl.className = ''; // Reset classes
+
         if (firstQ && firstQ.imageUrl && firstQ.imageGridIndex !== undefined) {
-            // Create a container for the rank image similar to quiz image
-            // We reuse the logic for 4x3 grid cropping via CSS
-            iconEl.innerHTML = '';
-            // Make it larger and 4:3 aspect ratio as requested
-            iconEl.style.width = '240px';
-            iconEl.style.height = '180px';
-            iconEl.style.borderRadius = '20px';
-            iconEl.style.background = `url(${firstQ.imageUrl})`;
-            iconEl.style.backgroundSize = '420% 315%'; // 5% safe margin
+            // Create Result Screen Rank Showcase (3 slots)
+            const showcase = document.createElement('div');
+            showcase.style.display = 'flex';
+            showcase.style.alignItems = 'center'; // Vertical align center for different sizes
+            showcase.style.justifyContent = 'center';
+            showcase.style.gap = '16px'; // Increased gap for better spacing
+            showcase.style.margin = '0 auto 1.5rem auto';
+            showcase.style.width = '100%';
+            showcase.style.maxWidth = '400px';
 
-            iconEl.style.margin = '0 auto 1.5rem auto'; // More space
-            iconEl.style.boxShadow = '0 15px 40px rgba(0,0,0,0.4)'; // Stronger shadow
-            iconEl.style.border = `4px solid ${rankColor}`; // Colored border matching rank
+            const ranks = [
+                { label: '梅', score: 0, index: 11, color: '#64748b' },
+                { label: '竹', score: 60, index: 10, color: '#94a3b8' },
+                { label: '松', score: 90, index: 9, color: '#fbbf24' }
+            ];
 
-            // Pos
-            const col = rankImageIndex % 4;
-            const row = Math.floor(rankImageIndex / 4);
-            const xPos = (col / 3) * 100;
-            const yPos = (row / 2) * 100;
-            iconEl.style.backgroundPosition = `${xPos}% ${yPos}%`;
-            iconEl.textContent = ''; // Remove emoji
+            ranks.forEach(rank => {
+                const slot = document.createElement('div');
+
+                // Logic: Show IF achieved. Blur/Secret if NOT achieved.
+                const isAchieved = accuracyKey >= rank.score;
+                const isCurrent = (rank.score === 90 && accuracyKey >= 90) ||
+                    (rank.score === 60 && accuracyKey >= 60 && accuracyKey < 90) ||
+                    (rank.score === 0 && accuracyKey < 60);
+
+                // Size Logic: Current Rank is HUGE (180px). Others are small (60px). 3:1 Ratio.
+                const size = isCurrent ? '180px' : '60px'; // 3:1 ratio
+
+                slot.style.width = size;
+                slot.style.height = size;
+                slot.style.borderRadius = isCurrent ? '20px' : '12px';
+                slot.style.position = 'relative';
+                slot.style.overflow = 'hidden';
+                slot.style.border = '2px solid rgba(255,255,255,0.1)';
+                slot.style.background = '#1e293b';
+                slot.style.transition = 'all 0.3s ease';
+
+                // Image layer
+                const imgDiv = document.createElement('div');
+                imgDiv.style.width = '100%';
+                imgDiv.style.height = '100%';
+                imgDiv.style.background = `url(${firstQ.imageUrl})`;
+                // 4x3 grid -> 400% 300%. Zoom 5% -> 420% 315% to trim edges
+                imgDiv.style.backgroundSize = '420% 315%';
+
+                const col = rank.index % 4;
+                const row = Math.floor(rank.index / 4);
+                const xPos = (col / 3) * 100;
+                const yPos = (row / 2) * 100;
+                imgDiv.style.backgroundPosition = `${xPos}% ${yPos}%`;
+
+
+                if (isCurrent) {
+                    slot.style.border = `4px solid ${rank.color}`;
+                    slot.style.boxShadow = `0 10px 30px ${rank.color}60`;
+                    slot.style.zIndex = '10';
+                    // slot.style.transform = 'scale(1.1)'; // Already sized up manually
+                } else if (isAchieved) {
+                    imgDiv.style.filter = 'grayscale(0.6)';
+                    const check = document.createElement('div');
+                    check.textContent = '✓';
+                    check.style.position = 'absolute';
+                    check.style.bottom = '2px';
+                    check.style.right = '4px';
+                    check.style.color = '#10b981';
+                    check.style.fontWeight = 'bold';
+                    check.style.fontSize = '0.8rem';
+                    slot.appendChild(check);
+                } else {
+                    // Not achieved -> Secret
+                    imgDiv.style.filter = 'brightness(0) opacity(0.3)';
+                    const lock = document.createElement('div');
+                    lock.textContent = '?';
+                    lock.style.position = 'absolute';
+                    lock.style.top = '50%';
+                    lock.style.left = '50%';
+                    lock.style.transform = 'translate(-50%, -50%)';
+                    lock.style.fontSize = '1.2rem';
+                    lock.style.color = 'rgba(255,255,255,0.5)';
+                    slot.appendChild(lock);
+                }
+
+                slot.appendChild(imgDiv);
+                showcase.appendChild(slot);
+            });
+
+            iconEl.appendChild(showcase);
         } else {
-            // Reset to default emoji if no image
             iconEl.style = ''; // Reset inline styles
             iconEl.textContent = accuracyKey === 100 ? '👑' : accuracyKey >= 60 ? '🎉' : '💪';
         }
@@ -328,7 +404,7 @@ function finishQuiz() {
 
         newChallengeBtn.onclick = () => {
             const imgUrl = (firstQ && firstQ.imageUrl) ? firstQ.imageUrl : null;
-            shareChallenge(correct, total, rankLabel, rankImageIndex, imgUrl);
+            shareChallenge(correct, total, rankLabel, finalRankImageIndex, imgUrl);
         };
     }
 }

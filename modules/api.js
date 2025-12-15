@@ -1,8 +1,67 @@
 import { appState } from './state.js';
-import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud, uploadImage } from './storage.js';
+import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud, uploadImage, getDeviceId } from './storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady } from './ui.js';
 import { DEFAULT_PROMPTS, ImagePromptHelper, GachaEngine } from './default_prompts.js';
+import { showPublicLibrary } from './library.js';
 
+
+
+const GAS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbzjUYYE64VAyp0q3Lini-_yxUI-lQBbQKIb3dUdf4SbcSdGr3pdndMDBxTVNjeAuhMT4Q/exec';
+
+async function callChatCompletion({ messages, model = 'gpt-4o-mini', temperature = 0.5, response_format = null, generateImage = false, imagePrompt = null }) {
+    // 1. APIキーがある場合: OpenAIを直接呼ぶ
+    if (appState.apiKey) {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${appState.apiKey}`
+            },
+            body: JSON.stringify({ model, messages, temperature, response_format })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'AI API Error');
+        }
+        return await response.json();
+    }
+    // 2. APIキーがない場合: GASプロキシを呼ぶ（無料枠/先着枠）
+    else {
+        const payload = {
+            deviceId: getDeviceId(),
+            messages,
+            model,
+            temperature,
+            response_format,
+            generateImage, // 画像生成もリクエストするか
+            imagePrompt
+        };
+
+        const response = await fetch(GAS_PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            // 429(Limit)や500など
+            let errMsg = 'Proxy Error';
+            try {
+                const err = await response.json();
+                errMsg = err.message || err.error || errMsg;
+            } catch (e) { }
+            throw new Error(errMsg);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.message || data.error);
+        }
+        return data;
+    }
+}
 
 
 export function updateGeneratingStatus(message, progress) {
@@ -21,34 +80,14 @@ export async function convertTextToMarkdown(text) {
     let prompt = DEFAULT_PROMPTS.markdownConversion;
     prompt = prompt.replace('{{text}}', truncatedText);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'あなたはテキスト整形の専門家です。与えられたテキストを見やすいマークダウン形式に整形します。'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.3
-        })
+    const data = await callChatCompletion({
+        messages: [
+            { role: 'system', content: 'あなたはテキスト整形の専門家です。与えられたテキストを見やすいマークダウン形式に整形します。' },
+            { role: 'user', content: prompt }
+        ],
+        temperature: 0.3
     });
 
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'テキスト整形に失敗しました');
-    }
-
-    const data = await response.json();
     return data.choices[0].message.content;
 }
 
@@ -60,25 +99,15 @@ async function analyzeLearningContent(text) {
     let prompt = DEFAULT_PROMPTS.contentAnalysis;
     prompt = prompt.replace('{{text}}', truncatedText);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-                { role: 'system', content: 'あなたは教育カリキュラムの専門家です。' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.5,
-            response_format: { type: "json_object" }
-        })
+    const data = await callChatCompletion({
+        messages: [
+            { role: 'system', content: 'あなたは教育カリキュラムの専門家です。' },
+            { role: 'user', content: prompt }
+        ],
+        temperature: 0.5,
+        response_format: { type: "json_object" }
     });
 
-    if (!response.ok) throw new Error('学習コンテンツの分析に失敗しました');
-    const data = await response.json();
     return JSON.parse(data.choices[0].message.content);
 }
 
@@ -91,14 +120,8 @@ export async function generateMaterialMetadata(text, fileName) {
     let prompt = DEFAULT_PROMPTS.metadataGeneration;
     prompt = prompt.replace('{{text}}', truncatedText);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
+    try {
+        const data = await callChatCompletion({
             messages: [
                 {
                     role: 'system',
@@ -111,19 +134,8 @@ export async function generateMaterialMetadata(text, fileName) {
             ],
             temperature: 0.5,
             response_format: { type: "json_object" }
-        })
-    });
+        });
 
-    if (!response.ok) {
-        return {
-            title: fileName.replace(/\.[^/.]+$/, ''),
-            summary: '説明を生成できませんでした。',
-            tags: ['未分類']
-        };
-    }
-
-    const data = await response.json();
-    try {
         return JSON.parse(data.choices[0].message.content);
     } catch (e) {
         return {
@@ -170,34 +182,21 @@ export async function generateQuestionsWithAI(text, fileName, questionCount = 30
         ? 'ソーステキストと同じ言語で出力してください。'
         : `出力は必ず${outputLang}で生成してください。`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${appState.apiKey}`
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: `あなたは優秀なクイズ作成者です。JSON形式で出力してください。${langInstruction}`
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        })
+    const data = await callChatCompletion({
+        messages: [
+            {
+                role: 'system',
+                content: `あなたは優秀なクイズ作成者です。JSON形式で出力してください。${langInstruction}`
+            },
+            {
+                role: 'user',
+                content: prompt
+            }
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
     });
 
-    if (!response.ok) {
-        throw new Error('API呼び出しに失敗しました');
-    }
-
-    const data = await response.json();
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
     const questions = parsed.questions || [];
@@ -301,67 +300,50 @@ function generatePromptsForBatch(questions, context) {
 
 
 // Helper to generate Rank Image Ideas (コスプレ博士 template)
+// Helper to generate Rank Image Ideas (Visual Evolution theme)
 async function generateRankPrompts(context) {
     const topic = context ? context.topic : 'General Knowledge';
-    const sourceText = context ? context.sourceText?.substring(0, 500) : '';
+    const contentSummary = context ? context.sourceText?.substring(0, 500) : '';
 
-    const systemPrompt = `あなたは画像生成AIのプロンプト作成者です。
-以下のクイズソースを分析し、「コスプレ博士」キャラクターの画像生成プロンプトを3段階分作成してください。
+    // Prompt Generation for Ranks
+    const systemPrompt = `You are a visual prompt engineer.
+Topic: "${topic}"
+Content hint: "${contentSummary}"
 
-【クイズソース】
-テーマ: ${topic}
-${sourceText}
+**TASK**: Create 3 SHORT image prompts for Gold/Silver/Bronze rankings.
 
-【キャラクター固定設定】
-- 小柄な老博士（白衣、アインシュタイン風ボサボサ白髪、丸眼鏡、大きな鼻）
-- アートスタイル：Pixar風3DCGカートゥーン、明るくポップな色彩
-- 正方形構図、キャラクター中央配置
+**STEP 1 - CHARACTER**:
+Choose ONE cute mascot character that perfectly matches "${topic}".
 
-【あなたのタスク】
-1. ソースからテーマを特定
-2. そのテーマを象徴するコスプレ衣装・小道具を決定
-3. 以下3段階のプロンプトを生成
+**STEP 2 - CREATE 3 VARIATIONS**:
+- Gold (Master): Triumphant champion, golden aura, celebrating victory.
+- Silver (Expert): Cool and confident, professional pose.
+- Bronze (Novice): Comically panicked, sweating, messy.
 
-【ランク別ルール】
-■ 高ランク「神博士」(prompts[0])
-- 完璧すぎるコスプレ（本家超え、オーラ発光）
-- ドヤ顔、目がキラキラ
-- 背景：金色の光、紙吹雪、豪華
+**RULES**:
+- Each prompt under 20 words.
+- Style: Japanese chibi anime character, simple background.
+- Same character in all 3, only emotion changes.
 
-■ 中ランク「一人前博士」(prompts[1])
-- コスプレ70%成功（惜しいポイントあり）
-- 少し自信ある表情
-- 背景：普通の明るさ、小さな拍手
-
-■ 低ランク「見習い博士」(prompts[2])
-- コスプレ失敗（サイズ合わない、アイテム逆さま、手作り感満載）
-- 困った表情、冷や汗
-- 背景：薄暗め、失敗を暗示
-
-【出力形式】
-JSON: {"prompts": ["高ランク英語プロンプト80語以内", "中ランク英語プロンプト80語以内", "低ランク英語プロンプト80語以内"]}`;
+Output JSON:
+{
+  "prompts": [
+    "Gold rank: [character] triumphant...",
+    "Silver rank: [character] confident...",
+    "Bronze rank: [character] panicked..."
+  ]
+}`;
 
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${appState.apiKey}`
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: 'You are a helpful assistant. Output JSON only.' },
-                    { role: 'user', content: systemPrompt }
-                ],
-                temperature: 0.8,
-                response_format: { type: "json_object" }
-            })
+        const data = await callChatCompletion({
+            messages: [
+                { role: 'system', content: 'You are a helpful assistant. Output JSON only.' },
+                { role: 'user', content: systemPrompt }
+            ],
+            temperature: 0.9, // Higher creative variety
+            response_format: { type: "json_object" }
         });
 
-        if (!response.ok) throw new Error('Rank prompt gen API error');
-
-        const data = await response.json();
         const content = data.choices[0].message.content;
         const parsed = JSON.parse(content);
 
@@ -372,15 +354,16 @@ JSON: {"prompts": ["高ランク英語プロンプト80語以内", "中ランク
         else results = Object.values(parsed).slice(0, 3);
 
         if (results.length < 3) throw new Error('Not enough rank prompts generated');
-        return results.slice(0, 3).map(r => r + " Pixar 3D cartoon style, square composition, vibrant colors.");
+        // Add style suffix ensuring high quality
+        return results.slice(0, 3).map(r => r + " 3D render, vibrant lighting, volumetric fog, 8k resolution.");
 
     } catch (e) {
         console.warn('Rank prompt gen failed, using fallback', e);
-        // Fallback with コスプレ博士 theme
+        // Fallback: Evolution of an element related to the topic
         return [
-            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in PERFECT ${topic} cosplay, glowing golden aura, confetti, triumphant pose, sparkling eyes, luxurious background.`,
-            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in 70% successful ${topic} cosplay, slight confident smile, subtle applause, bright background.`,
-            `Pixar 3D cartoon. Tiny elderly professor (Einstein-like white messy hair, round glasses, lab coat) in FAILED ${topic} cosplay, costume too big, items upside down, sweating, embarrassed expression, dim background.`,
+            `Pixar 3D style.Ultimate Master of ${topic}. A majestic, glowing, god - like entity or character made of ${topic} elements, floating in golden light, epic composition, triumphant.`,
+            `Pixar 3D style.Skilled Expert of ${topic}. A confident, cool character wielding ${topic} tools efficiently, dynamic pose, blue and silver lighting, professional.`,
+            `Pixar 3D style.Clumsy Novice of ${topic}. A cute, small, confused character overwhelmed by ${topic} elements, tangled or messy, warm bronze lighting, funny expression.`
         ];
     }
 }
@@ -421,7 +404,7 @@ export async function generateImagesForQuestions(questions) {
     for (const batch of batches) {
         try {
             batchNum++;
-            updateGeneratingStatus(`画像を生成中... (${batchNum}/${batches.length})`, 80 + (batchNum / batches.length) * 15);
+            updateGeneratingStatus(`画像を生成中... (${batchNum} /${batches.length})`, 80 + (batchNum / batches.length) * 15);
 
             // 1. Generate prompts for this batch (Questions)
             // Retrieve context from first question if available
@@ -430,8 +413,6 @@ export async function generateImagesForQuestions(questions) {
 
 
             // 2. Add Rank Prompts (3 slots) to make 12 total
-            // Rank S (High), Rank A (Mid), Rank B (Low)
-            // request dynamic humorous prompts from AI
             let rankPrompts = [];
             try {
                 rankPrompts = await generateRankPrompts(context);
@@ -439,24 +420,29 @@ export async function generateImagesForQuestions(questions) {
                 console.warn('Rank prompt gen failed, using fallback', err);
                 const topic = context ? context.topic : 'Learning';
                 rankPrompts = [
-                    `Funny exaggerated illustration of 'Ultimate Master of ${topic}'. God-like figure, epic universe background. Text: 'GOD TIER'`,
-                    `Illustration of 'Smart Expert of ${topic}'. Professor looking confident with trophy. Text: 'EXPERT'`,
-                    `Funny illustration of 'Novice of ${topic}'. Confused cute character trying to understand. Text: 'NOVICE'`
+                    `Japanese Anime style, vivid colors. Gold Rank: A cute ${topic} Mascot Character in GOD MODE, glowing golden aura, triumphant atmosphere.`,
+                    `Japanese Anime style, vivid colors. Silver Rank: A cute ${topic} Mascot Character looking confident and cool, professional atmosphere.`,
+                    `Japanese Anime style, vivid colors. Bronze Rank: A cute ${topic} Mascot Character panic-crying, messy failure, comical atmosphere.`
                 ];
             }
             prompts.push(...rankPrompts);
 
             // 3. Create Grid Prompt (4x3 = 12 panels)
-            let gridPrompt = "Create a single image with a 4x3 grid layout (12 panels). Each panel has white background with thin white separator lines between panels. The image should be in 16:9 aspect ratio (so each panel is roughly 4:3). Each panel contains a distinct centered illustration. ";
+            // Aspect Ratio: 4:3 total. With 4 cols x 3 rows, each panel is 1:1 square. Perfect.
+            let gridPrompt = "Create a single image with a STRICT 4:3 Aspect Ratio, containing a 4x3 grid layout (12 panels). 4 columns, 3 rows. \n";
+            gridPrompt += "Panel size: Each panel MUST be a perfect SQUARE (1:1 aspect ratio). \n";
+            gridPrompt += "Thin white separator lines between panels. \n";
 
             prompts.forEach((p, idx) => {
-                gridPrompt += `Panel ${idx + 1}: ${p}. `;
+                // Truncate individual prompts to prevent overflow/confusion
+                let cleanP = p.length > 50 ? p.substring(0, 50) + "..." : p;
+                gridPrompt += `Panel ${idx + 1}: ${cleanP}. \n`;
             });
-            // Fill remaining panels if batch is small (unlikely for 10q quiz but possible)
+            // Fill remaining panels
             for (let i = prompts.length; i < 12; i++) {
-                gridPrompt += `Panel ${i + 1}: abstract minimalist pattern. `;
+                gridPrompt += `Panel ${i + 1}: colorful abstract pattern. \n`;
             }
-            gridPrompt += "Style: cohesive, consistent lighting, realistic or illustrative as per context. High quality.";
+            gridPrompt += "Constraint: Maintain perfect 4x3 grid alignment. All 12 panels distinct and SQUARE. Cohesive Japanese Anime style, vivid colors.";
 
             // 4. Generate single grid image (Base64)
             const base64Image = await generateGridImage(gridPrompt);
@@ -507,8 +493,8 @@ export async function generateImagesForQuestions(questions) {
             // Or just convention: 9, 10, 11 are always Ranks if grid exists.
             // We will rely on convention in game.js.
 
-            // Force Cloud Sync for images (Prioritize Cloud)
-            if (appState.currentUser) {
+            // Force Cloud Sync for images (無料枠ユーザーのみ)
+            if (appState.currentUser && !appState.apiKey) {
                 for (const q of newQuestions) {
                     await saveQuestionToCloud(q);
                 }
@@ -523,6 +509,7 @@ export async function generateImagesForQuestions(questions) {
 
         } catch (e) {
             console.error('Grid image generation failed:', e);
+            alert(`画像生成スキップ: ${e.message}`);
         }
     }
 }
@@ -535,7 +522,45 @@ async function generateGridImage(gridPrompt) {
 
 // Google grid image generation using Gemini 3 Pro Image (Nano Banana Pro)
 async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
-    if (!appState.googleApiKey) throw new Error('Google APIキーが設定されていません');
+    // 1. Check Google API Key
+    if (!appState.googleApiKey) {
+        // Fallback to GAS Proxy if no Google Key AND no OpenAI Key (Free Tier user)
+        // If user has OpenAI key but no Google Key, they can't create image unless we route via proxy?
+        // But proxy assumes Free Tier logic.
+        // Let's allow proxy if NO Google Key is present, using OpenAI's free login logic check?
+        // Simpler: If no Google Key, try proxy.
+        // Proxy uses Google Key on server side.
+
+        // Proxy call
+        try {
+            console.log('🤖 Using GAS Proxy for Image Gen...');
+            const payload = {
+                deviceId: getDeviceId(),
+                messages: [{ role: 'user', content: 'ignore' }], // Dummy for OpenAI text part
+                model: 'gpt-4o-mini',
+                generateImage: true,
+                imagePrompt: gridPrompt
+            };
+
+            const response = await fetch(GAS_PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Image Proxy Error');
+            const data = await response.json();
+
+            if (data.imageMessage && !data.imageData) {
+                throw new Error(data.imageMessage); // Limit reached msg
+            }
+            if (data.imageData) return data.imageData;
+            throw new Error('No image data returned from proxy');
+
+        } catch (e) {
+            throw new Error('画像生成失敗: ' + e.message);
+        }
+    }
 
     // Use Gemini 3 Pro Image (Nano Banana Pro) as requested
     const modelName = 'gemini-3-pro-image-preview';
@@ -609,10 +634,7 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
 
 export async function generateQuizFromText(text, sourceName, customSettings = null) {
     try {
-        if (!appState.apiKey) {
-            alert('OpenAI APIキーが設定されていません。設定画面からAPIキーを入力してください。');
-            return;
-        }
+        // if (!appState.apiKey) { ... }  <-- Removed for Free Tier Proxy support
 
         showScreen('generating-screen');
         startMiniReview();
@@ -676,20 +698,29 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
         saveMaterials();
         saveQuestions();
 
-        // Cloud Sync: Save new material and questions
-        await saveMaterialToCloud(newMaterial);
-        for (const q of newQuestions) {
-            await saveQuestionToCloud(q);
+        // Cloud Sync: 無料枠ユーザーのみ公開ギャラリーに保存
+        // 自分のAPIキーを持つユーザーのクイズはプライベート
+        if (!appState.apiKey) {
+            await saveMaterialToCloud(newMaterial);
+            for (const q of newQuestions) {
+                await saveQuestionToCloud(q);
+            }
         }
 
-        updateGeneratingStatus('関連画像を生成しています...', 90);
-        await generateImagesForQuestions(newQuestions);
+        // 画像生成はログインユーザーのみ
+        if (appState.currentUser) {
+            updateGeneratingStatus('関連画像を生成しています...', 90);
+            await generateImagesForQuestions(newQuestions);
+        } else {
+            updateGeneratingStatus('画像生成にはログインが必要です（スキップ）', 90);
+        }
 
-        updateGeneratingStatus('完了！プレビューを表示しています...', 100);
+        updateGeneratingStatus('完了！みんなの広場に移動します...', 100);
 
-        // Signal quiz is ready - mini-review will show notification and change button
+        // クイズ生成完了後は「みんなの広場」に遷移
         signalQuizReady(() => {
-            showQuizPreview(newMaterial, newQuestions);
+            // みんなの広場を表示（自分のクイズが表示される）
+            showPublicLibrary();
         });
 
     } catch (e) {
