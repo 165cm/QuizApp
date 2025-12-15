@@ -169,15 +169,14 @@ export const CATEGORY_COLORS = {
 // ガチャ生成エンジン
 // ============================================
 
+const pick = (array) => {
+  if (!array || array.length === 0) return "";
+  return array[Math.floor(Math.random() * array.length)];
+};
+
 export const GachaEngine = {
 
-  /**
-   * 配列からランダムに1つ選択
-   */
-  pick: (array) => {
-    if (!array || array.length === 0) return "";
-    return array[Math.floor(Math.random() * array.length)];
-  },
+  pick: pick,
 
   /**
    * 配列からランダムにN個選択（重複なし）
@@ -194,8 +193,6 @@ export const GachaEngine = {
    * @returns {string} 生成されたプロンプト
    */
   generate: (keyword, category = "life") => {
-    const pick = GachaEngine.pick;
-
     // 各要素をランダム抽選
     const baseStyle = pick(BASE_STYLES);
     const emotion = pick(EMOTIONS);
@@ -239,58 +236,59 @@ export const GachaEngine = {
   },
 
   /**
-   * 12問分のプロンプトを一括生成（重複スタイルを減らす）
+   * 12問分のプロンプトを一括生成（統一感のあるスタイルで）
    * @param {Array} questions - 問題配列 [{visualKeyword, ...}, ...]
    * @param {string} category - カテゴリ
+   * @param {Object|null} fixedStyle - (Optional) 固定スタイル {baseStyle, color, effect, categoryStyle}
    * @returns {Array} プロンプト配列
    */
-  generateBatch: (questions, category = "life") => {
-    // 使用済みスタイルを追跡して偏りを減らす
-    const usedBaseStyles = new Set();
-    const usedEmotions = new Set();
+  generateBatch: (questions, category = "life", fixedStyle = null) => {
+    if (!questions || !Array.isArray(questions)) return [];
+
+    // 統一感のため、fixedStyleが渡されない場合でもここで一度だけスタイルを決定する
+    // ただし、感情(emotion)だけはバリエーションを持たせるためにランダムにする
+
+    let style = fixedStyle;
+    if (!style) {
+      style = {
+        baseStyle: pick(BASE_STYLES),
+        color: pick(CATEGORY_COLORS[category] || CATEGORY_COLORS.life),
+        effect: pick(EFFECTS),
+        categoryStyle: pick(CATEGORY_STYLES[category] || CATEGORY_STYLES.life)
+      };
+    }
 
     return questions.map((q, index) => {
-      const keyword = q.visualKeyword || "educational concept";
+      const keyword = (q && q.visualKeyword) ? q.visualKeyword : "educational concept";
 
-      // 使用済みを避けてスタイル選択（プールが尽きたらリセット）
-      let baseStyle, emotion;
+      // 感情だけは各当の面白さのためにランダムにする
+      const emotion = pick(EMOTIONS);
 
-      // ベーススタイル選択（なるべく被らない）
-      const availableBase = BASE_STYLES.filter(s => !usedBaseStyles.has(s));
-      if (availableBase.length === 0) {
-        usedBaseStyles.clear();
-        baseStyle = GachaEngine.pick(BASE_STYLES);
-      } else {
-        baseStyle = GachaEngine.pick(availableBase);
-      }
-      usedBaseStyles.add(baseStyle);
+      // パターン選択（統一感を出すため、シンプルな構成に固定するか、あるいはパターンも固定するか？）
+      // パターンも固定すると構図が似すぎるので、パターンはランダムで良いが、素材（スタイル）は固定する。
 
-      // 感情選択（なるべく被らない）
-      const availableEmotion = EMOTIONS.filter(e => !usedEmotions.has(e));
-      if (availableEmotion.length === 0) {
-        usedEmotions.clear();
-        emotion = GachaEngine.pick(EMOTIONS);
-      } else {
-        emotion = GachaEngine.pick(availableEmotion);
-      }
-      usedEmotions.add(emotion);
+      // 統一感を出すため、全てのパターンに必ず「baseStyle」を含める
+      // これにより「ある問題はドット絵、ある問題は水彩」というブレを防ぐ
 
-      // その他はランダム
-      const effect = GachaEngine.pick(EFFECTS);
-      const categoryStyle = GachaEngine.pick(CATEGORY_STYLES[category] || CATEGORY_STYLES.life);
-      const color = GachaEngine.pick(CATEGORY_COLORS[category] || CATEGORY_COLORS.life);
+      const { baseStyle, color, effect, categoryStyle } = style;
 
-      // パターン選択（インデックスで分散させる）
-      const patternIndex = index % 6;
+      // パターン定義: 必ず baseStyle を含めること！
       const patterns = [
+        // Pattern 1: Basic (Emotion focused)
         `${keyword}, ${emotion}, ${baseStyle}, ${color}, white background`,
-        `${keyword}, ${categoryStyle}, ${effect}, ${color}, white background`,
-        `${keyword}, ${baseStyle}, ${effect}, ${color}, white background`,
-        `${keyword}, ${emotion}, ${categoryStyle}, ${color}, white background`,
-        `${keyword}, ${baseStyle}, bold ${color}, white background`,
-        `${keyword}, ${emotion}, ${effect}, vibrant ${color}, white background`
+
+        // Pattern 2: Context focused (Category + Base)
+        `${keyword}, ${categoryStyle}, ${baseStyle}, ${color}, white background`,
+
+        // Pattern 3: Effect focused
+        `${keyword}, ${emotion}, ${baseStyle}, ${effect}, ${color}, white background`,
+
+        // Pattern 4: Minimal (Bold)
+        `${keyword}, ${baseStyle}, bold ${color}, simple composition, white background`
       ];
 
+      // Use deterministic pattern based on index
+      const patternIndex = index % patterns.length;
       let prompt = patterns[patternIndex];
 
       // クリーンアップ
@@ -301,7 +299,6 @@ export const GachaEngine = {
         .trim();
 
       return prompt;
-
     });
   },
 
@@ -309,10 +306,11 @@ export const GachaEngine = {
    * デバッグ用：生成されるスタイルをプレビュー
    */
   preview: (keyword, category, count = 5) => {
-
+    const results = [];
     for (let i = 0; i < count; i++) {
-
+      results.push(GachaEngine.generate(keyword, category));
     }
+    return results;
   }
 };
 

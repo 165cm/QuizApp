@@ -10,7 +10,10 @@ import { triggerConfetti } from './effects.js';
 const BREAK_INTERVAL = 10;
 
 export function startQuiz() {
+    console.log('[Debug] startQuiz called');
     const questions = selectQuestionsForSession();
+    console.log('[Debug] Questions selected:', questions ? questions.length : 0);
+
     if (questions.length === 0) {
         alert('出題できる問題がありません。「教材生成」から問題を作ってください。');
         return;
@@ -26,43 +29,124 @@ export function startQuiz() {
     showScreen('quiz-screen');
     document.body.classList.add('quiz-active');
 
+    // Scroll to top to ensure quiz is visible
+    window.scrollTo(0, 0);
+
     // Update counters
-    document.getElementById('current-question').textContent = '1';
-    document.getElementById('total-quiz-questions').textContent = questions.length;
+    const currentQEl = document.getElementById('current-question');
+    const totalQEl = document.getElementById('total-quiz-questions');
+    console.log('[Debug] Counter Elements:', { currentQEl, totalQEl });
+
+    if (currentQEl) currentQEl.textContent = '1';
+    if (totalQEl) totalQEl.textContent = questions.length;
 
     // Hide Quit Button for Shared Quiz to prevent accidental exit
     const quitBtn = document.getElementById('quit-btn');
-    if (quitBtn) {
-        quitBtn.style.display = appState.isSharedQuiz ? 'none' : 'flex';
+    if (appState.currentMaterial?.isPublicSource) {
+        if (quitBtn) quitBtn.style.display = 'none';
+    } else {
+        if (quitBtn) quitBtn.style.display = 'flex';
+    }
+
+    // Report Button Logic (Show only for Public Library content)
+    const reportBtn = document.getElementById('report-quiz-btn');
+    const currentMaterial = appState.materials.find(m => m.id === appState.currentMaterialId);
+
+    console.log('[Debug] startQuiz - Report Button Check:', {
+        exists: !!reportBtn,
+        material: currentMaterial,
+        materialId: appState.currentMaterialId,
+        isPublic: currentMaterial?.isPublicSource
+    });
+
+    if (reportBtn) {
+        if (currentMaterial && currentMaterial.isPublicSource) {
+            reportBtn.classList.remove('hidden');
+            // Remove old listeners to prevent duplicates
+            const newReportBtn = reportBtn.cloneNode(true);
+            reportBtn.parentNode.replaceChild(newReportBtn, reportBtn);
+
+            // Import openReportModal dynamically or assume it's global? 
+            // It's in library.js. We might need to export it or attach to window.
+            // BUT game.js does not import library.js (circular dependency risk).
+            // Best bet: Dispatch custom event or use window.
+            newReportBtn.addEventListener('click', () => {
+                // material.id is what we need.
+                // call global function?
+                if (window.openReportModal) {
+                    window.openReportModal(currentMaterial.id, currentMaterial.title);
+                } else {
+                    console.warn('openReportModal not found');
+                }
+            });
+        } else {
+            reportBtn.classList.add('hidden');
+        }
     }
 
     displayQuestion();
 }
 
+// Helper to shuffle array (Fisher-Yates)
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
 function displayQuestion() {
+    console.log('[Debug] displayQuestion called. Index:', appState.currentQuestionIndex);
     const q = appState.currentQuiz[appState.currentQuestionIndex];
-    document.getElementById('question-text').textContent = q.question;
-    document.getElementById('current-question').textContent = appState.currentQuestionIndex + 1;
+    if (!q) {
+        console.error('[Debug] No question found at index!');
+        return;
+    }
+
+    // Force repair if index is invalid (Double Safety for Single Question)
+    if (q.correctIndex === -1 || q.correctIndex === undefined) {
+        console.warn('[Debug] repairing single question index on fly', q);
+        if (q.choices && q.correctAnswer) {
+            q.correctIndex = q.choices.findIndex(c => c.trim() === q.correctAnswer.trim());
+        }
+        if (q.correctIndex === -1) q.correctIndex = 0; // Final Fallback
+    }
+
+    const textEl = document.getElementById('question-text');
+    const numEl = document.getElementById('current-question'); // Using current-question ID as per recent fix
+
+    if (textEl) textEl.textContent = q.question;
+    if (numEl) numEl.textContent = appState.currentQuestionIndex + 1;
 
     // Badge
     const badge = document.getElementById('difficulty-badge');
-    badge.className = `difficulty-badge ${q.difficulty}`;
-    badge.textContent = q.difficulty === 'basic' ? '基礎' : q.difficulty === 'standard' ? '標準' : '応用';
+    if (badge) {
+        const diff = q.difficulty || 'basic';
+        badge.className = `difficulty-badge ${diff}`;
+        badge.textContent = diff === 'basic' ? '基礎' : diff === 'standard' ? '標準' : '応用';
+    }
 
-    // Choices
+    // Choices (Randomized)
     const container = document.getElementById('choices-container');
     container.innerHTML = '';
 
-    q.choices.forEach((choice, idx) => {
+    // Create array of objects to track original index
+    const choiceObjects = q.choices.map((text, idx) => ({ text, originalIndex: idx }));
+    // Shuffle for display
+    shuffle(choiceObjects);
+
+    choiceObjects.forEach((item, displayIdx) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'choice-wrapper';
         wrapper.innerHTML = `
-            <span class="choice-number">${idx + 1}</span>
-            <button class="choice-btn" data-index="${idx}">${choice}</button>
+            <span class="choice-number">${displayIdx + 1}</span>
+            <button class="choice-btn" data-original-index="${item.originalIndex}">${item.text}</button>
         `;
         container.appendChild(wrapper);
 
-        wrapper.querySelector('button').onclick = () => handleAnswer(idx);
+        // Pass original index for logic correctness
+        wrapper.querySelector('button').onclick = () => handleAnswer(item.originalIndex);
     });
 
     updateProgressGridUI();
@@ -75,45 +159,48 @@ function displayQuestion() {
     imgContainer.style.backgroundImage = 'none';
     imgContainer.classList.remove('grid-mode');
     img.style.display = 'none';
+    imgContainer.style.display = 'none';
 
     if (q.imageUrl && q.imageGridIndex !== undefined) {
-        // Grid View (4x3 on 16:9 image) - Updated for 12 panels
+        // Grid View
         imgContainer.style.display = 'block';
         imgContainer.classList.add('grid-mode');
         imgContainer.style.backgroundImage = `url(${q.imageUrl})`;
 
-        // Calculate position for 4x3 grid
         const col = q.imageGridIndex % 4;
         const row = Math.floor(q.imageGridIndex / 4);
-        const xPos = (col / 3) * 100; // 0, 33.33, 66.66, 100
-        const yPos = (row / 2) * 100; // 0, 50, 100
+        const xPos = (col / 3) * 100;
+        const yPos = (row / 2) * 100;
 
         imgContainer.style.backgroundPosition = `${xPos}% ${yPos}%`;
-        imgContainer.style.backgroundSize = '420% 315%'; // 5% Zoom to trim edges
+        imgContainer.style.backgroundSize = '400% 300%'; // STRICT 4:3 Fit (No Zoom)
 
     } else if (q.imageUrl) {
-        // Standard single image
+        // Standard Image
         img.src = q.imageUrl;
         img.style.display = 'block';
         imgContainer.style.display = 'block';
-    } else {
-        imgContainer.style.display = 'none';
     }
 }
 
-function handleAnswer(selectedIndex) {
+function handleAnswer(originalSelectedIndex) {
     if (appState.selectedAnswer !== null) return;
-    appState.selectedAnswer = selectedIndex;
+    appState.selectedAnswer = originalSelectedIndex;
 
     const q = appState.currentQuiz[appState.currentQuestionIndex];
-    const isCorrect = selectedIndex === Number(q.correctIndex);
+    const isCorrect = originalSelectedIndex === Number(q.correctIndex);
 
-    // UI Update
+    // UI Update - Find button by original index
     const buttons = document.querySelectorAll('.choice-btn');
-    buttons.forEach((btn, idx) => {
+    buttons.forEach((btn) => {
         btn.disabled = true;
-        if (idx === q.correctIndex) btn.classList.add('correct');
-        else if (idx === selectedIndex && !isCorrect) btn.classList.add('incorrect');
+        const btnOriginalIdx = parseInt(btn.dataset.originalIndex);
+
+        if (btnOriginalIdx === q.correctIndex) {
+            btn.classList.add('correct');
+        } else if (btnOriginalIdx === originalSelectedIndex && !isCorrect) {
+            btn.classList.add('incorrect');
+        }
     });
 
     markProgressCellUI(appState.currentQuestionIndex, isCorrect);
@@ -127,7 +214,7 @@ function handleAnswer(selectedIndex) {
         playIncorrectSound();
     }
     appState.userStats.totalAnswered++;
-    appState.userStats.streak = calculateStreak(); // Simple update
+    appState.userStats.streak = calculateStreak();
 
     updateQuestionStats(q, isCorrect);
     saveQuestions();
@@ -408,3 +495,63 @@ function finishQuiz() {
         };
     }
 }
+
+// --- Keyboard Shortcuts ---
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Only active if quiz screen is visible
+        const quizScreen = document.getElementById('quiz-screen');
+        if (!quizScreen || !quizScreen.classList.contains('active')) return;
+
+        // Ignore if user is typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        // 1. Next Question (Space / Enter)
+        // Check if feedback modal is open
+        const feedbackModal = document.getElementById('feedback-modal');
+        const isFeedbackOpen = feedbackModal && !feedbackModal.classList.contains('hidden');
+
+        if (isFeedbackOpen) {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault(); // Prevent scrolling
+                const nextBtn = document.getElementById('next-question-btn');
+                if (nextBtn) nextBtn.click();
+            }
+            return; // Don't allow answering while feedback is open
+        }
+
+        // 2. Answer Selection (Numbers 1-9)
+        if (appState.selectedAnswer === null) { // Only if not yet answered
+            const num = parseInt(e.key);
+            if (!isNaN(num) && num >= 1 && num <= 9) {
+                // Convert 1-based key to 0-based visual index
+                const visualIndex = num - 1;
+                const choices = document.querySelectorAll('.choice-btn');
+
+                if (visualIndex < choices.length) {
+                    const targetBtn = choices[visualIndex];
+                    // IMPORTANT: Get the ORIGINAL index from the shuffled button
+                    const originalIndex = parseInt(targetBtn.dataset.originalIndex);
+
+                    // Trigger click to ensure visual feedback + logic both run
+                    // Or call logic directly: handleAnswer(originalIndex);
+                    // But click() is safer as it might have other listeners/effects
+                    targetBtn.click();
+                }
+            }
+        }
+    });
+}
+
+// Initialize Global Listener
+setupKeyboardShortcuts();
+
+// Expose to global for api.js integration
+window.startQuizWithMaterial = (materialId) => {
+    console.log('[Debug] window.startQuizWithMaterial called with:', materialId);
+    appState.currentMaterialId = materialId;
+    appState.selectedMaterial = materialId;
+    startQuiz();
+};
+
+window.setupKeyboardShortcuts = setupKeyboardShortcuts;
