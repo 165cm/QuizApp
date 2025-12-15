@@ -3,6 +3,63 @@ import { supabase } from './supabase.js';
 
 
 // Load data from Storage or Supabase
+// (Removed duplicate exports)
+
+// Load data from Storage or Supabase
+// 日本時間朝6時を基準にした「論理日」を取得
+function getJSTLogicalDate() {
+    const now = new Date();
+    // 日本時間に変換 (UTC+9)
+    const jstOffset = 9 * 60; // 分単位
+    const utcMinutes = now.getTime() / 60000 + now.getTimezoneOffset();
+    const jstMinutes = utcMinutes + jstOffset;
+    const jstDate = new Date(jstMinutes * 60000);
+
+    // 朝6時前なら「前日」として扱う
+    if (jstDate.getHours() < 6) {
+        jstDate.setDate(jstDate.getDate() - 1);
+    }
+
+    // YYYY-MM-DD形式で返す
+    return jstDate.toISOString().split('T')[0];
+}
+
+export function getFreeGenCount() {
+    const stored = localStorage.getItem('quiz_free_gen');
+    if (!stored) return 0;
+
+    try {
+        const data = JSON.parse(stored);
+        const today = getJSTLogicalDate();
+
+        // 日付が違えばリセット（0を返す）
+        if (data.date !== today) {
+            return 0;
+        }
+        return data.count || 0;
+    } catch {
+        return 0;
+    }
+}
+
+export function incrementFreeGenCount() {
+    const today = getJSTLogicalDate();
+    const data = {
+        date: today,
+        count: getFreeGenCount() + 1
+    };
+    localStorage.setItem('quiz_free_gen', JSON.stringify(data));
+}
+
+export function getDeviceId() {
+    let id = localStorage.getItem('device_id');
+    if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem('device_id', id);
+    }
+    return id;
+}
+
 export async function loadData() {
     // 1. Always load local data first for speed
     const localQuestions = JSON.parse(localStorage.getItem('questions') || '[]');
@@ -214,8 +271,50 @@ export async function saveQuestions() {
         localStorage.setItem('questions', JSON.stringify(appState.questions));
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
-            alert('保存容量が不足しています。画像付きの問題が多すぎる可能性があります。「データ管理」から不要なデータを削除してください。');
-            console.error('LocalStorage Quota Exceeded');
+            console.warn('LocalStorage quota exceeded, cleaning up old images...');
+
+            // 古い問題から画像を削除（最新10件以外）
+            const sortedQuestions = [...appState.questions].sort((a, b) =>
+                new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+            );
+
+            let cleaned = 0;
+            for (let i = 10; i < sortedQuestions.length; i++) {
+                if (sortedQuestions[i].imageUrl && sortedQuestions[i].imageUrl.startsWith('data:')) {
+                    // Base64画像を削除
+                    const q = appState.questions.find(q => q.id === sortedQuestions[i].id);
+                    if (q) {
+                        q.imageUrl = null;
+                        cleaned++;
+                    }
+                }
+            }
+
+            if (cleaned > 0) {
+                console.log(`Cleaned ${cleaned} old images, retrying save...`);
+                try {
+                    localStorage.setItem('questions', JSON.stringify(appState.questions));
+                    return; // 成功
+                } catch (e2) {
+                    // まだ容量オーバーなら全画像を削除
+                    console.warn('Still over quota, removing all base64 images...');
+                    appState.questions.forEach(q => {
+                        if (q.imageUrl && q.imageUrl.startsWith('data:')) {
+                            q.imageUrl = null;
+                        }
+                    });
+                    try {
+                        localStorage.setItem('questions', JSON.stringify(appState.questions));
+                        alert('容量を確保するため、古い問題の画像を削除しました。');
+                        return;
+                    } catch (e3) {
+                        // それでもダメならユーザーに通知
+                    }
+                }
+            }
+
+            alert('保存容量が不足しています。「データ管理」から不要なデータを削除してください。');
+            console.error('LocalStorage Quota Exceeded after cleanup attempt');
         } else {
             console.error('Save Questions Error:', e);
         }
@@ -229,8 +328,6 @@ export async function saveQuestions() {
 
 // New explicit helper to save a single question to cloud
 export async function saveQuestionToCloud(question) {
-    if (!appState.currentUser) return;
-
     // Skip legacy IDs (non-UUID format) to prevent FK errors
     const isUUID = (id) => typeof id === 'string' && id.includes('-');
     if (!isUUID(String(question.id))) {
@@ -253,7 +350,7 @@ export async function saveQuestionToCloud(question) {
 
     const qData = {
         id: String(question.id), // Ensure ID is string
-        user_id: appState.currentUser.id,
+        user_id: appState.currentUser?.id || null,  // 未ログインの場合はnull
         material_id: question.materialId ? String(question.materialId) : null,
         question_text: question.question || question.text || 'No question text',
         choices: question.choices || [],
@@ -266,8 +363,14 @@ export async function saveQuestionToCloud(question) {
         image_grid_index: question.imageGridIndex !== undefined ? question.imageGridIndex : null
     };
 
-    const { error } = await supabase.from('questions').upsert(qData);
-    if (error) console.error('Cloud Save Q Error:', error.message, error.details, 'Question:', question.id);
+    try {
+        const { error } = await supabase.from('questions').upsert(qData);
+        if (error) {
+            console.error('Cloud Save Q Error:', error.message, error.details, 'Question:', question.id);
+        }
+    } catch (e) {
+        console.error('Cloud Save Q Exception:', e);
+    }
 }
 
 export async function saveMaterials() {
@@ -276,8 +379,6 @@ export async function saveMaterials() {
 
 // Helper to save new material to cloud
 export async function saveMaterialToCloud(material) {
-    if (!appState.currentUser) return;
-
     // Skip legacy IDs (non-UUID format)
     const isUUID = (id) => typeof id === 'string' && id.includes('-');
     if (!isUUID(String(material.id))) {
@@ -286,19 +387,26 @@ export async function saveMaterialToCloud(material) {
 
     const mData = {
         id: material.id,
-        user_id: appState.currentUser.id,
+        user_id: appState.currentUser?.id || null,  // 未ログインの場合はnull
         title: material.title,
         content: material.content,
         summary: material.summary || '',
         source_name: material.fileName,
         upload_date: material.uploadDate,
-        tags: material.tags || []
+        tags: material.tags || [],
+        question_ids: material.questionIds || []  // 問題IDリストを保存
     };
 
-    const { error } = await supabase.from('materials').upsert(mData);
-    if (error) {
-        console.error('Cloud Save Material Error:', error);
-        throw error; // Throw so API stops
+    try {
+        const { error } = await supabase.from('materials').upsert(mData);
+        if (error) {
+            console.error('Cloud Save Material Error:', error);
+            // エラーを投げずにログだけ出す（未ログインでも続行）
+        } else {
+            console.log('✅ Material saved to cloud:', material.id);
+        }
+    } catch (e) {
+        console.error('Cloud Save Material Exception:', e);
     }
 }
 

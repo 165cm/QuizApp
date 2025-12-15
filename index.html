@@ -19,6 +19,13 @@
 </head>
 
 <body>
+    <!-- Global Loader -->
+    <div id="global-loader" class="global-loader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <p>Loading QuizMaster...</p>
+        </div>
+    </div>
     <!-- グローバルナビゲーション -->
     <nav id="global-nav" class="global-nav">
         <a href="#" class="nav-item active" data-screen="home" data-tab="start">
@@ -65,6 +72,11 @@
                             <span class="stat-value" id="shared-quiz-time">5</span>
                             <span class="stat-label">分</span>
                         </div>
+                        <div class="landing-stat" id="view-count-stat" style="display: none;">
+                            <span class="stat-icon">👁️</span>
+                            <span class="stat-value" id="shared-quiz-views">0</span>
+                            <span class="stat-label">人が挑戦</span>
+                        </div>
                     </div>
                     <button id="start-shared-quiz-btn" class="btn-landing-start">クイズを始める</button>
                 </div>
@@ -76,7 +88,9 @@
             <div class="certificate-container">
                 <div class="certificate-card">
                     <div class="certificate-header">
-                        <div class="certificate-badge">🏆</div>
+                        <!-- <div class="certificate-badge">🏆</div> -->
+                        <img id="cert-rank-image" class="certificate-rank-image" src="" alt="Rank Badge"
+                            style="display: none;">
                         <h2 class="certificate-title">認定証</h2>
                     </div>
                     <div class="certificate-body">
@@ -106,25 +120,7 @@
                         </button>
                     </div>
 
-                    <!-- メール登録カード -->
-                    <div class="certificate-email-card">
-                        <div class="certificate-email-header">
-                            <div class="certificate-email-icon">🎯</div>
-                            <h3 class="certificate-email-title">オリジナル問題生成機能</h3>
-                        </div>
-                        <p class="certificate-email-description">
-                            自分だけのクイズを作りたい方へ。早期アクセスと特別価格のご案内をお届けします。
-                        </p>
-                        <form id="certificate-email-form" class="certificate-email-form">
-                            <input type="email" id="certificate-email-input" class="certificate-email-input"
-                                placeholder="メールアドレスを入力" required>
-                            <button type="submit" class="certificate-email-btn">登録する</button>
-                        </form>
-                        <p class="certificate-email-note">
-                            登録することで、<a href="#" id="certificate-privacy-link"
-                                style="color: white; text-decoration: underline;">プライバシーポリシー</a>に同意したものとみなされます。
-                        </p>
-                    </div>
+
                 </div>
             </div>
         </div>
@@ -223,6 +219,18 @@
                         </div>
                         <button id="start-quiz-btn" class="btn btn-success btn-large-compact">
                             学習を開始する
+                        </button>
+                    </div>
+
+                    <!-- Public Gallery Banner -->
+                    <div class="public-gallery-banner" style="margin-bottom: 1.5rem;">
+                        <button id="go-to-public-btn" class="btn btn-public-gallery">
+                            <span class="gallery-icon">🌏</span>
+                            <div class="gallery-text">
+                                <span class="gallery-title">みんなのクイズ広場へ</span>
+                                <span class="gallery-desc">人気の無料クイズを探しに行こう！</span>
+                            </div>
+                            <span class="gallery-arrow">→</span>
                         </button>
                     </div>
 
@@ -367,6 +375,39 @@
 
                 <div id="references-list" class="materials-grid">
                     <!-- 教材カード一覧がここに表示されます -->
+                </div>
+            </div>
+        </div>
+
+        <!-- みんなのクイズ広場 (Public Gallery) -->
+        <div id="public-library-screen" class="screen">
+            <div class="container">
+                <div class="header">
+                    <button id="back-to-home-from-public-btn" class="btn-text">← ホームへ</button>
+                    <h1 class="logo">🌏 みんなのクイズ広場</h1>
+                </div>
+
+                <!-- SEO Section -->
+                <div class="seo-section">
+                    <h2 class="seo-title">AIが生成した無料の学習クイズ集</h2>
+                    <p class="seo-description">
+                        ユーザーが作成したオリジナルのクイズに挑戦しよう！<br>
+                        資格試験、語学学習、雑学、エンタメなど、様々なジャンルの問題が無料で解き放題。<br>
+                        <span class="seo-keywords">#AIクイズ #無料問題集 #資格勉強 #英語学習 #過去問</span>
+                    </p>
+                </div>
+
+                <!-- フィルター -->
+                <div class="filter-bar-compact">
+                    <input type="text" id="public-search" class="search-input-compact" placeholder="🔍 公開クイズを検索...">
+                    <div class="view-switcher">
+                        <span class="refresh-hint" id="public-refresh-btn" style="cursor:pointer;">🔄 更新</span>
+                    </div>
+                </div>
+
+                <div id="public-list" class="materials-grid">
+                    <!-- 公開クイズがここにロードされます -->
+                    <div class="loader-spinner"></div>
                 </div>
             </div>
         </div>
@@ -539,17 +580,23 @@
                     </div>
                     <div id="feedback-explanation" class="feedback-modal-explanation"></div>
 
-                    <!-- Auto-advance toggle -->
-                    <div class="auto-advance-toggle" id="auto-advance-toggle-container">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="auto-advance-checkbox">
-                            <span class="toggle-slider-small"></span>
-                        </label>
-                        <span class="toggle-text">次から自動で進む</span>
-                    </div>
+                    <div id="feedback-explanation" class="feedback-modal-explanation"></div>
 
-                    <div class="feedback-modal-timer" id="feedback-timer"></div>
-                    <button id="next-question-btn" class="btn-modal">次へ →</button>
+                    <div class="feedback-actions">
+                        <!-- Auto-advance toggle -->
+                        <div class="auto-advance-toggle" id="auto-advance-toggle-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto-advance-checkbox">
+                                <span class="toggle-slider-small"></span>
+                            </label>
+                            <span class="toggle-text">自動進行</span>
+                        </div>
+
+                        <div class="feedback-next-area">
+                            <div class="feedback-modal-timer" id="feedback-timer"></div>
+                            <button id="next-question-btn" class="btn-modal btn-next-compact">次へ →</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -587,6 +634,71 @@
             <div class="result-actions">
                 <button id="continue-btn" class="btn btn-primary btn-large">続ける</button>
                 <button id="home-btn" class="btn btn-secondary">ホームへ</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 認定証画面 (Certificate Screen) -->
+    <div id="certificate-screen" class="screen">
+        <div class="result-certificate-container" style="max-width: 500px; margin: 0 auto; padding: 20px;">
+            <div class="certificate-card" id="certificate-card">
+                <div class="certificate-header"
+                    style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 20px 20px 0 0; text-align: center; color: white;">
+                    <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px;">QUIZ MASTER CERTIFICATE</div>
+                    <h2 id="cert-quiz-title" style="margin: 0; font-size: 1.5rem;">クイズタイトル</h2>
+                </div>
+
+                <div class="certificate-body"
+                    style="background: #1e293b; padding: 30px 20px; text-align: center; color: white;">
+                    <!-- Rank Showcase inserted here via JS -->
+
+                    <div class="certificate-name-section" style="margin-top: 20px;">
+                        <div style="font-size: 0.9rem; opacity: 0.7;">SCORE</div>
+                        <div id="cert-score"
+                            style="font-size: 3.5rem; font-weight: 800; background: linear-gradient(to right, #fbbf24, #d97706); -webkit-background-clip: text; color: transparent;">
+                            100%</div>
+                        <div id="cert-detail" style="font-size: 1rem; opacity: 0.8; margin-bottom: 20px;">(10問中10問正解)
+                        </div>
+
+                        <div style="border-top: 1px solid rgba(255,255,255,0.1); width: 60%; margin: 20px auto;"></div>
+
+                        <div style="font-size: 0.9rem; opacity: 0.7;">DATE</div>
+                        <div id="cert-date" style="font-size: 1.1rem; font-family: monospace;">2024.12.15</div>
+                    </div>
+                </div>
+
+                <div class="certificate-footer"
+                    style="background: #0f172a; padding: 20px; border-radius: 0 0 20px 20px; text-align: center;">
+                    <div style="font-size: 0.8rem; color: #64748b;">Powered by QuizMaster</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="certificate-actions"
+                style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Share to X -->
+                <button id="share-x-cert-btn" class="btn-share-x-large"
+                    style="background: black; color: white; border: none; padding: 1rem; border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;">
+                    <span style="font-size: 1.2rem;">𝕏</span> 結果をポストする
+                </button>
+
+                <!-- Share Modal Open -->
+                <button id="share-certificate-btn" class="btn btn-secondary" style="width: 100%;">
+                    📤 その他の方法でシェア
+                </button>
+
+                <!-- Create Own Quiz -->
+                <button id="create-own-quiz-btn" class="btn-primary"
+                    style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; padding: 1rem; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; width: 100%;">
+                    自分もクイズを作る！
+                </button>
+
+                <!-- Back -->
+                <button id="try-again-btn" class="btn-secondary"
+                    style="background: transparent; border: 1px solid rgba(255,255,255,0.2); padding: 0.8rem; border-radius: 12px; color: white; width: 100%; cursor: pointer;">
+                    ホームに戻る
+                </button>
             </div>
         </div>
     </div>
@@ -731,6 +843,17 @@
                         <div class="share-option-title">QRコードを表示</div>
                         <div class="share-option-desc">スマホでスキャンして共有</div>
                     </div>
+                </button>
+            </div>
+            <!-- SNSダイレクトシェアボタン -->
+            <div class="share-sns-buttons">
+                <button id="share-x-btn" class="share-sns-btn share-x">
+                    <span class="sns-icon">𝕏</span>
+                    <span>でシェア</span>
+                </button>
+                <button id="share-line-btn" class="share-sns-btn share-line">
+                    <span class="sns-icon">💬</span>
+                    <span>LINEでシェア</span>
                 </button>
             </div>
             <div id="share-result" class="share-result hidden">

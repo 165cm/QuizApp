@@ -1,7 +1,12 @@
 import { appState } from './state.js';
-import { saveMaterials, saveQuestions, deleteMaterialFromCloud, deleteFromDevice, deleteFromCloud } from './storage.js';
+import { saveMaterials, saveQuestions, deleteMaterialFromCloud, deleteFromDevice, deleteFromCloud, saveMaterialToCloud, saveQuestionToCloud } from './storage.js';
 import { showScreen } from './ui.js';
 import { shuffleArray } from './utils.js';
+import { supabase } from './supabase.js';
+// We need startQuiz. Circular dep risk? No, game.js imports state, ui. library.js imports game.js is fine if game.js doesn't import library.js functions at top level.
+// Checked game.js: imports { showScreen } from './ui.js' and { appState } from './state.js'.
+// It does NOT import library.js. Safe.
+import { startQuiz } from './game.js';
 
 let filteredMaterials = [];
 let currentView = 'list';
@@ -9,6 +14,164 @@ let currentView = 'list';
 let isSelectionMode = false;
 let selectedMaterialIds = new Set();
 let isBulkDeleteMode = false;
+
+// --- Public Library Logic ---
+export async function showPublicLibrary() {
+    const listContainer = document.getElementById('public-list');
+    if (!listContainer) return;
+
+    showScreen('public-library-screen');
+    listContainer.innerHTML = '<div class="loader-spinner"></div><p style="text-align:center; color:var(--text-secondary); width:100%;">新着クイズを読み込んでいます...</p>';
+
+    try {
+        // Fetch materials (limit 20, newest first)
+        // Note: RLS might block this. If so, user feels nothing but empty list.
+        const { data: materials, error } = await supabase
+            .from('materials')
+            .select('*')
+            .limit(20)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        listContainer.innerHTML = '';
+
+        if (!materials || materials.length === 0) {
+            listContainer.innerHTML = `
+                <div class="empty-message">
+                    <p>公開されているクイズがまだありません。</p>
+                    <p style="font-size:0.9rem; margin-top:0.5rem;">自分で作ったクイズをシェアすると、ここに表示されるかも？</p>
+                </div>`;
+            return;
+        }
+
+        materials.forEach(material => {
+            // Supabaseのカラム名（スネークケース）→ クライアント側（キャメルケース）
+            material.questionIds = material.question_ids || material.questionIds;
+            material.uploadDate = material.upload_date || material.uploadDate;
+            material.fileName = material.source_name || material.fileName;
+
+            const card = createPublicMaterialCard(material);
+            listContainer.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error('Public Fetch Error:', err);
+        // Fallback: Show local materials as "My Gallery" mock if online fails?
+        // Or just error message.
+        listContainer.innerHTML = `
+            <div class="empty-message">
+                <p>クイズの読み込みに失敗しました。</p>
+                <button class="btn btn-secondary" id="retry-public-btn" style="margin-top:1rem;">再読み込み</button>
+            </div>`;
+        document.getElementById('retry-public-btn')?.addEventListener('click', showPublicLibrary);
+    }
+}
+
+function createPublicMaterialCard(material) {
+    const card = document.createElement('div');
+    card.className = 'public-quiz-card';
+
+    // Random gradient for visual variety
+    const gradients = [
+        'linear-gradient(135deg, #6366f1, #8b5cf6)',
+        'linear-gradient(135deg, #3b82f6, #0ea5e9)',
+        'linear-gradient(135deg, #10b981, #059669)',
+        'linear-gradient(135deg, #f59e0b, #d97706)',
+        'linear-gradient(135deg, #ec4899, #f43f5e)',
+        'linear-gradient(135deg, #14b8a6, #06b6d4)'
+    ];
+    const bg = gradients[Math.floor(Math.random() * gradients.length)];
+
+    const qCount = material.questionIds ? material.questionIds.length : '?';
+    const title = (material.title || '無題').substring(0, 25) + (material.title?.length > 25 ? '...' : '');
+    const summary = (material.summary || 'AI生成クイズ').substring(0, 40) + (material.summary?.length > 40 ? '...' : '');
+
+    card.innerHTML = `
+        <div class="public-card-bg" style="background: ${bg};"></div>
+        <div class="public-card-content">
+            <div class="public-card-title">${title}</div>
+            <div class="public-card-summary">${summary}</div>
+            <div class="public-card-meta">${qCount}問</div>
+        </div>
+    `;
+
+    // カードにdata属性でIDを記録
+    card.dataset.materialId = material.id;
+    card.dataset.materialTitle = material.title;
+
+    card.addEventListener('click', () => importPublicAndStart(material));
+
+    return card;
+}
+
+async function importPublicAndStart(material) {
+    // 1. Check if we already have this material AND its questions
+    const existing = appState.materials.find(m => m.id === material.id);
+    const existingQuestions = appState.questions.filter(q => q.materialId === material.id);
+
+    if (existing && existingQuestions.length > 0) {
+        appState.currentMaterialId = existing.id;
+        appState.selectedMaterial = existing.id;
+        startQuiz();
+        return;
+    }
+
+    // 2. Fetch Questions
+    const loadOverlay = document.createElement('div');
+    loadOverlay.className = 'loading-overlay';
+    loadOverlay.innerHTML = '<div class="loader-spinner"></div><p style="color:white; margin-top:1rem;">クイズデータをダウンロード中...</p>';
+    document.body.appendChild(loadOverlay);
+
+    try {
+        let qIds = material.questionIds;
+        if (!qIds || qIds.length === 0) throw new Error('No questions linked');
+
+        const { data: questions, error } = await supabase
+            .from('questions')
+            .select('*')
+            .in('id', qIds);
+
+        if (error) throw error;
+
+        // Supabaseのカラム名（スネークケース）→ クライアント側（キャメルケース）
+        questions.forEach(q => {
+            // material_idが未設定の場合は、この教材のIDを使用
+            q.materialId = q.material_id || q.materialId || material.id;
+            q.question = q.question_text || q.question;
+            q.correctIndex = q.choices?.indexOf(q.correct_answer);
+            q.correctAnswer = q.correct_answer || q.correctAnswer;
+            q.imageUrl = q.image_url || q.imageUrl;
+            q.imageGridIndex = q.image_grid_index ?? q.imageGridIndex;
+            q.reviewCount = q.review_count || q.reviewCount || 0;
+            q.lastReviewed = q.last_reviewed || q.lastReviewed;
+            q.easeFactor = q.ease_factor || q.easeFactor || 2.5;
+        });
+
+
+
+        // 3. Save to local state
+        if (!existing) {
+            appState.materials.push(material);
+        }
+        appState.questions.push(...questions);
+
+        // Save to local storage
+        saveMaterials();
+        saveQuestions();
+
+        appState.currentMaterialId = material.id;
+        appState.selectedMaterial = material.id;  // ← これが重要！
+
+        loadOverlay.remove();
+        startQuiz();
+
+    } catch (err) {
+        console.error('Import Error:', err);
+        loadOverlay.remove();
+        alert('クイズのダウンロードに失敗しました。');
+    }
+}
 
 export function showMaterialsLibrary() {
     const container = document.getElementById('references-list');
@@ -63,6 +226,63 @@ export function showMaterialsLibrary() {
 function createMaterialListItem(material) {
     const item = document.createElement('div');
     item.className = 'material-list-item';
+
+    // Shared View Logic (Simple list)
+    if (currentView === 'shared') {
+        item.classList.add('shared-item');
+        item.style.cursor = 'default';
+
+        const dateStr = new Date(material.uploadDate).toLocaleDateString('ja-JP');
+        const shareUrl = material.shareUrl || '';
+
+        item.innerHTML = `
+            <div class="material-list-Main-Wrapper" style="padding: 0.5rem 0;">
+                <div class="material-list-main" style="flex: 1;">
+                    <div class="material-list-title" style="font-weight: 600; font-size: 1rem;">${material.title}</div>
+                    <div class="material-list-date" style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">
+                        ${dateStr} <span style="margin: 0 8px;">|</span> 閲覧数: <span class="view-count-val">-</span>
+                    </div>
+                </div>
+                <div class="material-list-actions" style="display: flex; gap: 12px; align-items: center;">
+                    <button class="btn-icon-mini copy-url-btn" title="URLをコピー" style="background: rgba(99, 102, 241, 0.1); color: #6366f1; border-radius: 8px; padding: 6px 12px;">🔗 コピー</button>
+                    <button class="btn-delete-inline" data-id="${material.id}" title="削除">🗑️</button>
+                </div>
+            </div>
+        `;
+
+        // Copy Handler
+        const copyBtn = item.querySelector('.copy-url-btn');
+        if (copyBtn) {
+            copyBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (shareUrl) {
+                    try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        // Provide visual feedback
+                        copyBtn.textContent = '✅ Copied!';
+                        setTimeout(() => copyBtn.textContent = '🔗 コピー', 2000);
+                    } catch (err) {
+                        alert('コピーに失敗しました');
+                    }
+                } else {
+                    alert('URLが見つかりません');
+                }
+            };
+        }
+
+        // Delete Handler
+        const deleteBtn = item.querySelector('.btn-delete-inline');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showDeleteModal(material.id);
+            });
+        }
+
+        return item;
+    }
+
+    // Normal Selection / List View Logic
     if (isSelectionMode) {
         item.classList.add('selection-mode');
         if (selectedMaterialIds.has(material.id)) {
@@ -353,17 +573,12 @@ export function showMaterialDetail(materialId) {
 
     const shareBtn = document.getElementById('share-material-btn');
     if (shareBtn) {
-        if (material.isShared || material.hasBeenShared) {
-            shareBtn.disabled = true;
-            shareBtn.style.opacity = '0.5';
-            shareBtn.style.cursor = 'not-allowed';
-            shareBtn.title = '共有された教材は再共有できません';
-        } else {
-            shareBtn.disabled = false;
-            shareBtn.style.opacity = '1';
-            shareBtn.style.cursor = 'pointer';
-            shareBtn.title = '';
-        }
+        // Shared materials can be re-shared (cloned again)
+        shareBtn.disabled = false;
+        shareBtn.style.opacity = '1';
+        shareBtn.style.cursor = 'pointer';
+        shareBtn.title = '';
+
         shareBtn.onclick = () => {
             // Logic handled by share module usually, but might need explicit trigger if not global
             // Actually currently handle in separate flow. But let's leave it.
