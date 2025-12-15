@@ -89,6 +89,7 @@ function createPublicMaterialCard(material) {
 
     card.innerHTML = `
         <div class="public-card-bg" style="background: ${bg};"></div>
+        <button class="report-btn" title="報告">🚩</button>
         <div class="public-card-content">
             <div class="public-card-title">${title}</div>
             <div class="public-card-summary">${summary}</div>
@@ -99,6 +100,13 @@ function createPublicMaterialCard(material) {
     // カードにdata属性でIDを記録
     card.dataset.materialId = material.id;
     card.dataset.materialTitle = material.title;
+
+    // Report button listener
+    const reportBtn = card.querySelector('.report-btn');
+    reportBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openReportModal(material.id, material.title);
+    });
 
     card.addEventListener('click', () => importPublicAndStart(material));
 
@@ -725,4 +733,50 @@ export function initLibrary() {
             document.getElementById(`tab-${tab}`).classList.add('active');
         });
     });
+
+    // Report Modal Listeners
+    document.getElementById('close-report-modal')?.addEventListener('click', closeReportModal);
+    document.getElementById('submit-report-btn')?.addEventListener('click', submitReport);
+}
+
+// Report functionality
+let currentReportTarget = null;
+
+function openReportModal(materialId, materialTitle) {
+    currentReportTarget = { id: materialId, title: materialTitle };
+    const modal = document.getElementById('report-modal');
+    const titleEl = document.getElementById('report-target-title');
+    if (titleEl) titleEl.textContent = materialTitle;
+
+    // Reset form
+    document.querySelectorAll('input[name="report-reason"]').forEach(r => r.checked = false);
+
+    modal?.classList.remove('hidden');
+}
+
+function closeReportModal() {
+    document.getElementById('report-modal')?.classList.add('hidden');
+    currentReportTarget = null;
+}
+
+async function submitReport() {
+    if (!currentReportTarget) return;
+
+    const selectedReason = document.querySelector('input[name="report-reason"]:checked');
+    if (!selectedReason) {
+        alert('報告理由を選択してください。');
+        return;
+    }
+
+    // In a real implementation, this would send to a backend
+    // For now, we'll just show a confirmation and log it
+    console.log('Report submitted:', {
+        materialId: currentReportTarget.id,
+        materialTitle: currentReportTarget.title,
+        reason: selectedReason.value,
+        timestamp: new Date().toISOString()
+    });
+
+    alert('報告を受け付けました。ご協力ありがとうございます。');
+    closeReportModal();
 }

@@ -326,11 +326,30 @@ function setupEventListeners() {
 
     // Generation Settings Modal Listeners
     const genModal = document.getElementById('generation-settings-modal');
+    const copyrightCheckbox = document.getElementById('copyright-confirm-checkbox');
+    const confirmGenBtn = document.getElementById('confirm-generate-btn');
+
     document.getElementById('close-gen-settings-modal')?.addEventListener('click', () => {
         genModal.classList.add('hidden');
+        // Reset checkbox when closing
+        if (copyrightCheckbox) copyrightCheckbox.checked = false;
+        if (confirmGenBtn) confirmGenBtn.disabled = true;
     });
 
-    document.getElementById('confirm-generate-btn')?.addEventListener('click', async () => {
+    // Copyright confirmation checkbox controls generate button
+    copyrightCheckbox?.addEventListener('change', () => {
+        if (confirmGenBtn) {
+            confirmGenBtn.disabled = !copyrightCheckbox.checked;
+        }
+    });
+
+    // Link to terms from confirmation section
+    document.getElementById('confirm-terms-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('terms-modal')?.classList.remove('hidden');
+    });
+
+    confirmGenBtn?.addEventListener('click', async () => {
         if (!pendingGenContext) return;
 
         // Increment Free Count if guest

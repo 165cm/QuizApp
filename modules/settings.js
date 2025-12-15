@@ -28,6 +28,20 @@ export function initSettings() {
     document.getElementById('btn-reset-materials')?.addEventListener('click', handleResetMaterials);
     document.getElementById('btn-reset-all')?.addEventListener('click', handleResetAll);
 
+    // Legal Links
+    document.getElementById('open-terms-btn')?.addEventListener('click', () => {
+        document.getElementById('terms-modal')?.classList.remove('hidden');
+    });
+    document.getElementById('open-privacy-btn')?.addEventListener('click', () => {
+        document.getElementById('privacy-policy-modal')?.classList.remove('hidden');
+    });
+    document.getElementById('close-terms-modal')?.addEventListener('click', () => {
+        document.getElementById('terms-modal')?.classList.add('hidden');
+    });
+    document.getElementById('close-privacy-modal')?.addEventListener('click', () => {
+        document.getElementById('privacy-policy-modal')?.classList.add('hidden');
+    });
+
     // Visibility Toggles
     setupVisibilityToggle(apiKeyInput, toggleVisibilityBtn);
     setupVisibilityToggle(googleKeyInput, toggleGoogleVisibilityBtn);
