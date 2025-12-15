@@ -2633,16 +2633,19 @@ body {
 /* --- Quiz Screen Image & Mobile Optimization --- */
 .quiz-image-container {
     width: 100%;
-    width: 100%;
     /* Limit height on mobile */
     /* Enforce 16:9 Aspect Ratio */
     aspect-ratio: 16 / 9;
     border-radius: 12px;
     overflow: hidden;
+    /* Important for Crop */
     /* Important for Safe Margin cropping */
     margin-bottom: 0.75rem;
     position: relative;
     /* Remove static max-height to respect aspect ratio */
+    transform: scale(1.05);
+    /* Crop 5% border */
+    transform-origin: center;
 }
 
 .quiz-image {
@@ -3074,16 +3077,6 @@ body {
     color: var(--text-muted);
 }
 
-/* Mini Review Styles */
-.mini-review-container {
-    margin-top: 2rem;
-    padding: 1.5rem;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    max-width: 500px;
-    width: 100%;
-}
 
 .mini-review-container.hidden {
     display: none;
@@ -3103,12 +3096,6 @@ body {
     color: var(--text-main);
     margin-bottom: 1rem;
     text-align: center;
-}
-
-.mini-review-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    padding: 1rem;
 }
 
 .mini-q-text {
@@ -4136,6 +4123,7 @@ body {
     padding: 2px 8px;
     border-radius: 10px;
 }
+
 /* ========================================
    Legal Section Styles
    ======================================== */
@@ -4298,4 +4286,640 @@ body {
 .report-submit-btn {
     width: 100%;
     margin-top: 1rem;
+}
+
+/* --- Fixes for UI Issues --- */
+
+/* 1. Modal Close Button */
+.btn-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 10;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.btn-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* 2. Public Quiz Card Updates for Report Button */
+.public-quiz-card {
+    position: relative;
+    /* Ensure absolute children are relative to this */
+}
+
+.report-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    font-size: 1rem;
+    transition: all 0.2s;
+    opacity: 0.8;
+}
+
+.report-btn:hover {
+    transform: scale(1.1);
+    background: rgba(239, 68, 68, 0.4);
+    opacity: 1;
+}
+
+/* 3. Settings Screen Overflow Fix */
+#settings-screen {
+    /* Ensure it can scroll independently if needed, or play nice with body scroll */
+    min-height: 100vh;
+    padding-bottom: 120px !important;
+    /* Extra padding for bottom nav/sidebar safety */
+}
+
+/* Ensure Settings Content doesn't get hidden */
+.settings-tab-content.active {
+    padding-bottom: 2rem;
+}
+
+
+/* --- Refinements based on User Feedback --- */
+
+/* 1. Modal Scrolling Fix */
+.modal-content,
+.privacy-modal-content {
+    max-height: 85vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.privacy-content {
+    overflow-y: visible;
+    /* Let parent scroll */
+    padding-bottom: 2rem;
+}
+
+/* 2. Settings Tabs Width Consistency */
+.settings-tab-content {
+    max-width: 800px;
+    /* Constrain width for readability on large screens */
+    margin: 0 auto;
+    /* Center it */
+}
+
+/* 3. Report Button & Description Refinements */
+.report-btn {
+    top: auto !important;
+    /* Override previous top: 10px */
+    bottom: 15px !important;
+    /* Move to bottom right */
+    right: 15px !important;
+}
+
+.public-card-summary {
+    white-space: normal !important;
+    /* Allow wrapping */
+    overflow: visible !important;
+    text-overflow: clip !important;
+    text-align: left !important;
+    display: block !important;
+    /* Remove any flex constraints if needed */
+    margin-right: 40px;
+    /* Avoid partial overlap with button if text is long, though button is bottom-right now */
+    margin-bottom: 2rem;
+    /* Ensure space for the button at bottom */
+    font-size: 0.9rem;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+
+.public-quiz-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 180px;
+    /* Ensure enough height for expanded text */
+    padding-bottom: 3rem;
+    /* Space for bottom button */
+}
+
+.public-card-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.public-card-title {
+    margin-bottom: 0.75rem;
+}
+
+/* Adjust Settings Text Areas to fill the new constrained width nicely */
+.prompt-textarea {
+    width: 100%;
+}
+
+
+/* --- 2:1 Landscape Card Redesign --- */
+
+.public-quiz-card {
+    /* Change from square to 2:1 landscape */
+    aspect-ratio: 2 / 1;
+    min-height: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    /* Align content to bottom */
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+    /* Ensure existing padding doesn't break layout */
+    padding-bottom: 0 !important;
+}
+
+.public-card-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.report-btn {
+    /* Ensure button is on top of content */
+    z-index: 30 !important;
+    bottom: 12px !important;
+    right: 12px !important;
+    top: auto !important;
+}
+
+.public-card-content {
+    /* Content overlay on top of background */
+    position: relative;
+    z-index: 10;
+    padding: 1rem 1.25rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Center text vertically or keep top? */
+    /* Let's use darker gradient overlay for readability */
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 60%, rgba(0, 0, 0, 0.1) 100%);
+    pointer-events: none;
+    /* Let clicks pass through to card */
+}
+
+/* Adjust Text Balance */
+.public-card-title {
+    font-size: 1.2rem;
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
+    /* Limit lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    pointer-events: auto;
+    /* Allow selecting text if needed */
+}
+
+.public-card-summary {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    opacity: 0.9;
+    margin-bottom: 0 !important;
+    /* Remove bottom margin as button is absolute */
+    /* Limit lines */
+    display: -webkit-box !important;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    /* Ensure it doesn't overlap the button visually if text is long */
+    padding-right: 40px;
+    pointer-events: auto;
+}
+
+.public-card-meta {
+    font-size: 0.75rem;
+    margin-top: auto;
+    /* Push to bottom if content is short? */
+    /* Actually with 2:1, space is tight. Maybe hide meta or put same line? */
+    display: none;
+    /* Hide question count for cleaner look? Or minimal? */
+}
+
+/* Specific overrides for the appended styles from previous steps */
+.public-quiz-card {
+    padding-bottom: 0 !important;
+}
+
+
+/* --- Public Library Grid Layout 2-Column Fix --- */
+#public-list.materials-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    /* Mobile: 1 column */
+    gap: 1.5rem;
+    width: 100%;
+}
+
+/* Ensure no max-width constraints on the container itself restricted it */
+#public-library-screen .container {
+    max-width: 1000px;
+    /* Allow wider container for 2 columns */
+}
+
+@media (min-width: 768px) {
+    #public-list.materials-grid {
+        grid-template-columns: 1fr 1fr;
+        /* Desktop: 2 columns */
+        gap: 2rem;
+    }
+
+    /* Ensure cards take full width of the grid cell */
+    .public-quiz-card {
+        width: 100%;
+        margin: 0;
+    }
+}
+
+/* Enhancing Readability as requested */
+.public-card-title {
+    font-size: 1.4rem;
+    /* Larger title */
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    /* Stronger shadow */
+}
+
+.public-card-summary {
+    font-size: 1rem;
+    /* Larger text */
+    line-height: 1.6;
+    background: rgba(0, 0, 0, 0.4);
+    /* Semi-transparent bg for just text if needed, or rely on gradient */
+    padding: 0.5rem;
+    border-radius: 8px;
+    margin-right: 0;
+    /* Align full width */
+    max-width: 90%;
+    /* Avoid hitting the button if it's there */
+}
+
+
+/* --- Simple Public Card Revert --- */
+.public-quiz-card {
+    aspect-ratio: auto;
+    /* Remove fixed ratio */
+    min-height: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.5rem;
+    background: var(--glass-bg);
+    /* Revert to glass */
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.public-quiz-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    /* Lighten */
+}
+
+/* Remove Image/Gradient Overlay feeling, make it clean */
+.public-card-bg {
+    display: none;
+    /* Hide the gradient background div */
+}
+
+.public-card-content {
+    background: transparent;
+    padding: 0;
+    pointer-events: auto;
+    height: auto;
+    display: block;
+}
+
+.public-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+    color: white;
+    text-shadow: none;
+    -webkit-line-clamp: 2;
+}
+
+.public-card-summary {
+    display: none !important;
+    /* Hide summary for cleaner look? User said title, count, author, views */
+    /* Or keep it simple? User said 'Title, Question Count, Author Name, View Count'. So hide summary is safe or make it very subtle. */
+    /* Let's hiding summary to match 'Simple' request and focus on metadata */
+}
+
+.public-card-info {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Hide report button on card */
+.public-quiz-card .report-btn {
+    display: none !important;
+}
+
+/* --- Report Button in Quiz Header --- */
+#report-quiz-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-right: 0.5rem;
+    transition: all 0.2s;
+    color: var(--text-muted);
+}
+
+#report-quiz-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+#report-quiz-btn.hidden {
+    display: none;
+}
+
+
+/* --- Richer Public Card Metadata --- */
+.public-card-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    /* Ensure no overflow on small screens */
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    /* Pill shape */
+    backdrop-filter: blur(4px);
+    transition: all 0.2s;
+}
+
+.meta-badge:hover {
+    transform: translateY(-1px);
+}
+
+/* Align Mini Review Container */
+#mini-review-floating {
+    width: 90%;
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: fixed;
+    bottom: 2rem;
+    z-index: 9000;
+}
+
+#progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #a855f7);
+    width: 0%;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+/* Ensure progress container is visible when generating (controlled by JS typically, or checking ancestors) */
+.loading-overlay #progress-container {
+    display: block;
+}
+
+/* Revert public badge styles to keep it simple but working */
+/* ... (Existing code) ... */
+
+/* Specific Badge Styles for Richness */
+.badge-q {
+    background: rgba(99, 102, 241, 0.15);
+    /* Indigo tint */
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.badge-views {
+    background: rgba(16, 185, 129, 0.15);
+    /* Emerald tint */
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge-author {
+    background: rgba(255, 255, 255, 0.05);
+    /* Subtle */
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-left: auto;
+    /* Push author to the right? Or keep left? */
+    /* User said: 'QCount -> Views -> Author' in order. */
+    /* If 'margin-left: auto' is removed, they stack left. */
+    /* Let's keep them all left for scanning. */
+    margin-left: 0;
+}
+
+
+/* --- Simple Metadata Revert (No Badges) --- */
+.meta-badge {
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-muted) !important;
+    padding: 0 !important;
+    backdrop-filter: none !important;
+    font-weight: 500;
+}
+
+.meta-badge:hover {
+    transform: none !important;
+    color: white !important;
+    /* Slight highlight on hover */
+}
+
+/* Force Clickability Safety */
+.public-quiz-card,
+.public-card-content,
+.public-card-title,
+.public-card-meta-row,
+.public-card-info,
+.meta-badge {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Ensure no z-index overlap blocking */
+.public-card-bg {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.public-card-content {
+    z-index: 100 !important;
+    /* Force on top */
+}
+
+
+/* --- Fix Margin and Text Balance --- */
+.public-card-title {
+    margin-bottom: 1.5rem !important;
+    /* Increase margin significantly */
+    line-height: 1.5 !important;
+}
+
+.public-card-meta-row {
+    margin-top: 0 !important;
+    /* Reset margin-top since title pushes it */
+}
+
+
+/* --- Fix Margin and Alignment (User Request) --- */
+.public-card-content {
+    align-items: center;
+    /* Center horizontally in flex column */
+    text-align: center;
+    /* Center text */
+}
+
+.public-card-title {
+    margin-bottom: 0.5rem !important;
+    /* Reset margin on title */
+}
+
+.public-card-meta-row {
+    margin-top: 0;
+    margin-bottom: 1.5rem !important;
+    /* Margin BELOW metadata (10 questions etc) */
+    justify-content: center;
+    /* Center the row items */
+    width: 100%;
+}
+
+
+/* --- FORCE QUIZ SCREEN VISIBILITY --- */
+#quiz-screen.active-screen {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+    /* Ensure it's on top */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg-color);
+    /* Ensure background is opaque */
+    overflow-y: auto;
+}
+
+/* Ensure container within quiz screen is visible */
+#quiz-screen .container {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+
+/* --- Fix Quiz Screen Position (scroll reset, no extra margin) --- */
+#quiz-screen.active {
+    top: 0 !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+#quiz-screen .container {
+    padding-top: 1rem !important;
+    /* Minimal top padding */
+    margin-top: 0 !important;
+}
+
+
+/* --- CORRECT Fix Quiz Screen Position (using correct .active class) --- */
+#quiz-screen.active {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: var(--bg-color) !important;
+    overflow-y: auto !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+
+/* --- Fix Quiz Screen Container Positioning --- */
+#quiz-screen .container.center {
+    justify-content: flex-start !important;
+    /* Align content to TOP, not center */
+    min-height: auto !important;
+    padding-top: 1rem !important;
 }

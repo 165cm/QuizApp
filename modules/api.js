@@ -1,6 +1,6 @@
 import { appState } from './state.js';
 import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud, uploadImage, getDeviceId } from './storage.js';
-import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady } from './ui.js';
+import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady, showGenerationCompleteModal } from './ui.js';
 import { DEFAULT_PROMPTS, ImagePromptHelper, GachaEngine } from './default_prompts.js';
 import { showPublicLibrary } from './library.js';
 
@@ -289,11 +289,14 @@ export async function fetchTextFromUrl(url) {
     throw new Error(`URLの読み込みに失敗しました。以下の原因が考えられます：\n1. サイトがアクセスをブロックしている\n2. URLが間違っている\n3. プロキシサービスが混雑している\n\n別のURLを試すか、テキストを直接コピー＆ペーストしてください。`);
 }
 
-// Helper to generate prompts for questions using GachaEngine (no API calls, variety!)
+// Helper to generate prompts for questions using GachaEngine
 function generatePromptsForBatch(questions, context) {
-    const category = context?.category || 'life';
+    const category = (context && context.category) ? context.category : 'life';
 
-    // Use GachaEngine for varied, non-repetitive prompts
+    // Decide a Master Style for this batch (Unity of Theme)
+    // The GachaEngine.generateBatch will now handle "Per Batch" consistency automatically
+    // if we don't pass a fixed style, it generates one internally for the whole batch.
+    // So we just call it.
     return GachaEngine.generateBatch(questions, category);
 }
 
@@ -632,25 +635,70 @@ async function generateGridImageWithGoogle(gridPrompt, retryCount = 0) {
 }
 
 
+// --- Progress Simulation Helper ---
+let progressInterval = null;
+
+function startProgressSimulation(startPercent, targetPercent, estimatedDurationMs) {
+    if (progressInterval) clearInterval(progressInterval);
+
+    let current = startPercent;
+    const stepTime = 100; // Update every 100ms
+    const totalSteps = estimatedDurationMs / stepTime;
+    const increment = (targetPercent - startPercent) / totalSteps;
+
+    // Initial set
+    updateGeneratingStatus(document.getElementById('generating-status')?.textContent || '処理中...', current);
+
+    progressInterval = setInterval(() => {
+        current += increment;
+        if (current >= targetPercent) {
+            current = targetPercent;
+            clearInterval(progressInterval);
+        }
+        // Keep the message same, just update bar
+        const statusEl = document.getElementById('generating-status');
+        if (statusEl) {
+            const fillEl = document.getElementById('progress-fill');
+            if (fillEl) fillEl.style.width = current + '%';
+        }
+    }, stepTime);
+}
+
+function stopProgressSimulation() {
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = null;
+}
+
 export async function generateQuizFromText(text, sourceName, customSettings = null) {
     try {
-        // if (!appState.apiKey) { ... }  <-- Removed for Free Tier Proxy support
-
         showScreen('generating-screen');
         startMiniReview();
-        updateGeneratingStatus('テキストを解析しています...', 20);
+
+        // 1. Text Analysis
+        updateGeneratingStatus('テキストを解析しています...', 10);
+        startProgressSimulation(10, 25, 3000); // Est 3s
 
         const metadata = await generateMaterialMetadata(text, sourceName);
-        updateGeneratingStatus('学習用コンテンツを整形しています...', 40);
-        const markdownContent = await convertTextToMarkdown(text);
+        stopProgressSimulation();
 
-        updateGeneratingStatus('AIが学習内容を分析しています...', 30);
+        // 2. Markdown Conversion
+        updateGeneratingStatus('学習用コンテンツを整形しています...', 30);
+        startProgressSimulation(30, 50, 5000); // Est 5s
+        const markdownContent = await convertTextToMarkdown(text);
+        stopProgressSimulation();
+
+        // 3. Learning Analysis
+        updateGeneratingStatus('AIが学習内容を分析しています...', 50);
+        startProgressSimulation(50, 60, 4000); // Est 4s
         const analysisContext = await analyzeLearningContent(text);
+        stopProgressSimulation();
 
         // Merge analysis into settings for passing to question generator
         const genSettings = { ...customSettings, context: analysisContext };
 
+        // 4. Question Generation (The longest part)
         updateGeneratingStatus('クイズを作成しています... (分析完了)', 60);
+        startProgressSimulation(60, 85, 15000); // Est 15s for questions
 
         // Check Image Gen setting
         const useImageGen = document.getElementById('image-gen-checkbox')?.checked;
@@ -662,17 +710,18 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
         }
 
         const questions = await generateQuestionsWithAI(text, sourceName, qCount, genSettings);
+        stopProgressSimulation();
 
         // Attach context to questions for image generation usage
         questions.forEach(q => q.contextData = analysisContext);
 
-        // Use standard UUID if available, otherwise simple fallback (though Supabase prefers UUID)
+        // ... Saving logic (Fast) ...
         const materialId = crypto.randomUUID ? crypto.randomUUID() : 'mat_' + Date.now();
         const newMaterial = {
             id: materialId,
             title: metadata.title,
             summary: metadata.summary,
-            content: markdownContent, // Saved as Markdown
+            content: markdownContent,
             tags: metadata.tags,
             fileName: sourceName,
             uploadDate: new Date().toISOString(),
@@ -698,8 +747,6 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
         saveMaterials();
         saveQuestions();
 
-        // Cloud Sync: 無料枠ユーザーのみ公開ギャラリーに保存
-        // 自分のAPIキーを持つユーザーのクイズはプライベート
         if (!appState.apiKey) {
             await saveMaterialToCloud(newMaterial);
             for (const q of newQuestions) {
@@ -707,24 +754,26 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
             }
         }
 
-        // 画像生成はログインユーザーのみ
+        // 5. Image Generation
         if (appState.currentUser) {
-            updateGeneratingStatus('関連画像を生成しています...', 90);
+            updateGeneratingStatus('関連画像を生成しています...', 85);
+            startProgressSimulation(85, 95, 10000); // Est 10s
             await generateImagesForQuestions(newQuestions);
+            stopProgressSimulation();
         } else {
             updateGeneratingStatus('画像生成にはログインが必要です（スキップ）', 90);
         }
 
         updateGeneratingStatus('完了！みんなの広場に移動します...', 100);
 
-        // クイズ生成完了後は「みんなの広場」に遷移
+        // クイズ生成完了後は「プレビュー画面」を表示 (生成完了モーダルの代わりに)
         signalQuizReady(() => {
-            // みんなの広場を表示（自分のクイズが表示される）
-            showPublicLibrary();
+            showQuizPreview(newMaterial, newQuestions);
         });
 
     } catch (e) {
         console.error(e);
+        stopProgressSimulation();
         alert('生成失敗: ' + e.message);
         stopMiniReview();
         showScreen('home-screen');
@@ -752,93 +801,7 @@ export async function generateQuizFromUrl(url, customSettings = null) {
 let previewMaterial = null;
 let previewQuestions = [];
 
-export function showQuizPreview(material, questions) {
-    previewMaterial = material;
-    previewQuestions = questions;
 
-    const modal = document.getElementById('quiz-preview-modal');
-    const grid = document.getElementById('preview-grid');
-    const title = document.getElementById('preview-title');
-    const regenBtn = document.getElementById('regenerate-images-btn');
-
-    if (!modal || !grid) {
-        // Fallback if modal doesn't exist
-        stopMiniReview();
-        showScreen('home-screen');
-        alert('クイズ生成完了！');
-        return;
-    }
-
-    title.textContent = material.title;
-    grid.innerHTML = '';
-
-    // Check if any question has images
-    const hasImages = questions.some(q => q.imageUrl);
-
-    if (hasImages) {
-        // Grid layout for questions with images
-        grid.className = 'preview-grid';
-        questions.forEach((q, idx) => {
-            const card = document.createElement('div');
-            card.className = 'preview-card';
-
-            let imageContent = '<div class="preview-no-image">画像なし</div>';
-
-            if (q.imageUrl) {
-                if (q.imageGridIndex !== undefined && q.imageGridIndex >= 0) {
-                    // 4x3 grid (4 cols, 3 rows)
-                    const col = q.imageGridIndex % 4;
-                    const row = Math.floor(q.imageGridIndex / 4);
-                    const xPos = (col / 3) * 100; // 0, 33.33, 66.66, 100
-                    const yPos = (row / 2) * 100; // 0, 50, 100
-                    imageContent = `
-                        <div class="preview-image-sliced" style="
-                            background-image: url('${q.imageUrl}');
-                            background-size: 420% 315%;
-                            background-position: ${xPos}% ${yPos}%;
-                        "></div>
-                     `;
-                } else {
-                    imageContent = `<img src="${q.imageUrl}" alt="Q${idx + 1}" class="preview-image">`;
-                }
-            }
-
-            const questionText = q.question || q.question_text || '';
-            card.innerHTML = `
-                <div class="preview-image-container">
-                    ${imageContent}
-                </div>
-                <div class="preview-question">Q${idx + 1}: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</div>
-            `;
-
-            grid.appendChild(card);
-        });
-        // Show regenerate button
-        if (regenBtn) regenBtn.style.display = 'inline-block';
-    } else {
-        // List layout for image-less quizzes
-        grid.className = 'preview-list';
-        questions.forEach((q, idx) => {
-            const item = document.createElement('div');
-            item.className = 'preview-list-item';
-            const questionText = q.question || q.question_text || '';
-            item.innerHTML = `
-                <span class="preview-q-number">Q${idx + 1}</span>
-                <span class="preview-q-text">${questionText}</span>
-            `;
-
-            grid.appendChild(item);
-        });
-        // Hide regenerate button for image-less quizzes
-        if (regenBtn) regenBtn.style.display = 'none';
-    }
-
-    // Hide generating screen and show modal
-    stopMiniReview();
-    showScreen('home-screen');
-    modal.classList.remove('hidden');
-    modal.style.display = 'block';
-}
 
 export async function regenerateImages() {
     if (previewQuestions.length === 0) return;
@@ -858,13 +821,120 @@ export async function regenerateImages() {
     await generateImagesForQuestions(previewQuestions);
     saveQuestions();
 
-    // Show preview again
+    // Show regenerated preview
     showQuizPreview(previewMaterial, previewQuestions);
+}
+
+// Fixed: Add Start Button and Fix Flow
+export function showQuizPreview(material, questions) {
+    previewMaterial = material;
+    previewQuestions = questions;
+
+    const modal = document.getElementById('quiz-preview-modal');
+    const grid = document.getElementById('preview-grid');
+    const title = document.getElementById('preview-title');
+    const regenBtn = document.getElementById('regenerate-images-btn');
+
+    // Create or Get Start Button in Preview Modal
+    let startBtn = document.getElementById('preview-start-btn');
+    if (!startBtn) {
+        // If not existing, try to find a place to inject or repurpose
+        // Assuming modal has a footer or actions area
+        const actions = modal.querySelector('.preview-actions') || modal.querySelector('.modal-footer');
+        if (actions) {
+            startBtn = document.createElement('button');
+            startBtn.id = 'preview-start-btn';
+            startBtn.className = 'btn btn-primary';
+            startBtn.innerHTML = '▶ クイズを始める';
+            actions.insertBefore(startBtn, actions.firstChild); // Put first
+        }
+    }
+
+    if (!modal || !grid) {
+        // Fallback: If no preview modal structure, use the Generation Complete element
+        showGenerationCompleteModal(material);
+        return;
+    }
+
+    title.textContent = material.title;
+    grid.innerHTML = '';
+
+    // Check if any question has images
+    const hasImages = questions.some(q => q.imageUrl);
+
+    if (hasImages) {
+        grid.className = 'preview-grid';
+        questions.forEach((q, idx) => {
+            const card = document.createElement('div');
+            card.className = 'preview-card';
+            let imageContent = '<div class="preview-no-image">画像なし</div>';
+            if (q.imageUrl) {
+                if (q.imageGridIndex !== undefined && q.imageGridIndex >= 0) {
+                    const col = q.imageGridIndex % 4;
+                    const row = Math.floor(q.imageGridIndex / 4);
+                    const xPos = (col / 3) * 100;
+                    const yPos = (row / 2) * 100;
+                    imageContent = `
+                        <div class="preview-image-sliced" style="
+                            background-image: url('${q.imageUrl}');
+                            background-size: 420% 315%;
+                            background-position: ${xPos}% ${yPos}%;
+                        "></div>
+                     `;
+                } else {
+                    imageContent = `<img src="${q.imageUrl}" alt="Q${idx + 1}" class="preview-image">`;
+                }
+            }
+            const questionText = q.question || q.question_text || '';
+            card.innerHTML = `
+                <div class="preview-image-container">${imageContent}</div>
+                <div class="preview-question">Q${idx + 1}: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</div>
+            `;
+            grid.appendChild(card);
+        });
+        if (regenBtn) regenBtn.style.display = 'inline-block';
+    } else {
+        grid.className = 'preview-list';
+        questions.forEach((q, idx) => {
+            const item = document.createElement('div');
+            item.className = 'preview-list-item';
+            const questionText = q.question || q.question_text || '';
+            item.innerHTML = `
+                <span class="preview-q-number">Q${idx + 1}</span>
+                <span class="preview-q-text">${questionText}</span>
+            `;
+            grid.appendChild(item);
+        });
+        if (regenBtn) regenBtn.style.display = 'none';
+    }
+
+    stopMiniReview();
+    showScreen('home-screen'); // Ensure background
+    modal.classList.remove('hidden');
+    modal.style.display = 'block';
+
+    // Event Listener for Start
+    console.log('[Debug] showQuizPreview - startBtn exists:', !!startBtn);
+    if (startBtn) {
+        startBtn.onclick = () => {
+            console.log('[Debug] preview-start-btn clicked! Material ID:', material.id);
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            if (window.startQuizWithMaterial) {
+                console.log('[Debug] Calling window.startQuizWithMaterial');
+                window.startQuizWithMaterial(material.id);
+            } else {
+                console.error('[Debug] window.startQuizWithMaterial NOT FOUND!');
+            }
+        };
+    }
 }
 
 export function closePreviewAndGoHome() {
     const modal = document.getElementById('quiz-preview-modal');
-    modal.classList.add('hidden');
-    modal.style.display = 'none';
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
     showScreen('home-screen');
 }

@@ -68,57 +68,46 @@ export async function showPublicLibrary() {
     }
 }
 
+// Make global for game.js to access
+window.openReportModal = openReportModal;
+
 function createPublicMaterialCard(material) {
     const card = document.createElement('div');
     card.className = 'public-quiz-card';
 
-    // Random gradient for visual variety
-    const gradients = [
-        'linear-gradient(135deg, #6366f1, #8b5cf6)',
-        'linear-gradient(135deg, #3b82f6, #0ea5e9)',
-        'linear-gradient(135deg, #10b981, #059669)',
-        'linear-gradient(135deg, #f59e0b, #d97706)',
-        'linear-gradient(135deg, #ec4899, #f43f5e)',
-        'linear-gradient(135deg, #14b8a6, #06b6d4)'
-    ];
-    const bg = gradients[Math.floor(Math.random() * gradients.length)];
-
+    // Data for display
     const qCount = material.questionIds ? material.questionIds.length : '?';
-    const title = (material.title || '無題').substring(0, 25) + (material.title?.length > 25 ? '...' : '');
-    const summary = (material.summary || 'AI生成クイズ').substring(0, 40) + (material.summary?.length > 40 ? '...' : '');
+    const title = material.title || '無題';
+    // const summary = material.summary || ''; // Hidden in simple mode
+    const author = material.author_name || 'Unknown User';
+    const views = material.view_count || 0;
 
+    // Simple Design Structure (Rich Metadata Row)
     card.innerHTML = `
-        <div class="public-card-bg" style="background: ${bg};"></div>
-        <button class="report-btn" title="報告">🚩</button>
         <div class="public-card-content">
             <div class="public-card-title">${title}</div>
-            <div class="public-card-summary">${summary}</div>
-            <div class="public-card-meta">${qCount}問</div>
+            <div class="public-card-meta-row">
+                <span class="meta-badge badge-q" title="問題数">📝 ${qCount}問</span>
+                <span class="meta-badge badge-views" title="閲覧数">👁️ ${views}</span>
+                <span class="meta-badge badge-author" title="作者">👤 ${author}</span>
+            </div>
         </div>
     `;
 
-    // カードにdata属性でIDを記録
-    card.dataset.materialId = material.id;
-    card.dataset.materialTitle = material.title;
-
-    // Report button listener
-    const reportBtn = card.querySelector('.report-btn');
-    reportBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openReportModal(material.id, material.title);
-    });
-
+    // Click -> Start directly (Report button is now in Quiz Screen)
     card.addEventListener('click', () => importPublicAndStart(material));
 
     return card;
 }
 
 async function importPublicAndStart(material) {
+    console.log('[Debug] importPublicAndStart called for:', material);
     // 1. Check if we already have this material AND its questions
     const existing = appState.materials.find(m => m.id === material.id);
     const existingQuestions = appState.questions.filter(q => q.materialId === material.id);
 
     if (existing && existingQuestions.length > 0) {
+        console.log('[Debug] Found existing material/questions. Starting immediate.');
         appState.currentMaterialId = existing.id;
         appState.selectedMaterial = existing.id;
         startQuiz();
@@ -126,6 +115,7 @@ async function importPublicAndStart(material) {
     }
 
     // 2. Fetch Questions
+    console.log('[Debug] Fetching questions from Cloud...');
     const loadOverlay = document.createElement('div');
     loadOverlay.className = 'loading-overlay';
     loadOverlay.innerHTML = '<div class="loader-spinner"></div><p style="color:white; margin-top:1rem;">クイズデータをダウンロード中...</p>';
@@ -147,7 +137,17 @@ async function importPublicAndStart(material) {
             // material_idが未設定の場合は、この教材のIDを使用
             q.materialId = q.material_id || q.materialId || material.id;
             q.question = q.question_text || q.question;
-            q.correctIndex = q.choices?.indexOf(q.correct_answer);
+            // Robust check for correct index (ignore whitespace)
+            if (q.choices && q.correct_answer) {
+                q.correctIndex = q.choices.findIndex(c => c.trim() === q.correct_answer.trim());
+                if (q.correctIndex === -1) {
+                    // Fallback check (exact match failed, try relaxed)
+                    console.warn('Exact match failed for answer:', q.correct_answer, q.choices);
+                    q.correctIndex = 0; // Fallback to avoid -1 error
+                }
+            } else {
+                q.correctIndex = 0;
+            }
             q.correctAnswer = q.correct_answer || q.correctAnswer;
             q.imageUrl = q.image_url || q.imageUrl;
             q.imageGridIndex = q.image_grid_index ?? q.imageGridIndex;
@@ -159,6 +159,9 @@ async function importPublicAndStart(material) {
 
 
         // 3. Save to local state
+        // Mark as public source for Report feature
+        material.isPublicSource = true;
+
         if (!existing) {
             appState.materials.push(material);
         }
@@ -780,3 +783,6 @@ async function submitReport() {
     alert('報告を受け付けました。ご協力ありがとうございます。');
     closeReportModal();
 }
+
+// Expose to global for game.js
+window.openReportModal = openReportModal;

@@ -615,20 +615,19 @@
         </div>
 
         <!-- クイズ画面 -->
-        <div id="quiz-screen" class="screen">
-            <div class="container">
+        <div id="quiz-screen" class="screen hidden">
+            <div class="container center">
                 <div class="quiz-header">
-                    <button id="quit-btn" class="btn-secondary btn-icon">
-                        <span style="font-size: 1.2rem;">✕</span>
+                    <button id="report-quiz-btn" class="hidden" title="問題を報告する">🚩</button>
+                    <button id="quit-btn" class="btn-secondary btn-icon" aria-label="やめる">
+                        <span class="quit-icon">✕</span>
                     </button>
                     <div class="progress-bar-container">
                         <div class="progress-info-text">
-                            <span class="progress-label">Question</span>
-                            <span class="progress-numbers">
-                                <span id="current-question">1</span>
-                                <span class="progress-divider">/</span>
-                                <span id="total-quiz-questions">10</span>
-                            </span>
+                            <span class="progress-label">QUESTION</span>
+                            <span class="progress-numbers" id="current-question">1</span>
+                            <span class="progress-divider">/</span>
+                            <span class="progress-numbers" id="total-quiz-questions">10</span>
                         </div>
                     </div>
                 </div>
