@@ -29,7 +29,8 @@ QuizApp/
 ├── modules/            # 機能ごとに分割されたESモジュール
 │   ├── api.js          # OpenAI/Gemini APIとの通信、フォールバック処理
 │   ├── auth.js         # Supabase Authラッパー
-│   ├── game.js         # クイズ実行画面のロジック
+│   ├── default_prompts.js  # v3 プロンプト設定、GachaEngine、解説フォーマッター
+│   ├── game.js         # クイズ実行画面のロジック、解説カルーセル
 │   ├── library.js      # 教材一覧・詳細表示、削除機能
 │   ├── settings.js     # 設定画面、データ管理
 │   ├── share.js        # URLクエリパラメータ処理、共有機能
@@ -39,6 +40,26 @@ QuizApp/
 │   ├── supabase.js     # Supabaseクライアント初期化
 │   └── ui.js           # 共通UI操作 (画面遷移、トーストなど)
 └── supabase_storage.sql # Storageバケット作成用SQL
+```
+
+## 🎯 v3 プロンプト設定 (`default_prompts.js`)
+
+### クイズ生成の改善点
+- **3段階解説構造**: `hook`（興味）→ `core`（理由）→ `application`（応用）
+- **よくある誤解フィールド**: `misconception` で学習効果を高める
+- **コンテキスト分析強化**: `surprises`, `misconceptions`, `storyline` を抽出
+
+### 画像生成 v3.1
+- **GachaEngine**: スタイル・感情・エフェクトをランダム選択
+- **no-text/no-border制約**: 全プロンプトに適用
+- **カテゴリ別スタイル**: science / math / history / language / life
+
+### 主要エクスポート
+```javascript
+export const GachaEngine = { generate, generateBatch, generateStrict };
+export const ExplanationFormatter = { format, formatHTML, isStructured };
+export const DifficultyHelper = { getLabel, getColor, getBadgeClass };
+export const DEFAULT_PROMPTS = { contentAnalysis, questionGeneration, ... };
 ```
 
 ## 🚀 環境構築 & セットアップ
