@@ -283,14 +283,25 @@
                 <!-- タブナビゲーション -->
                 <!-- タブコンテンツ -->
                 <div class="home-tab-content active" id="tab-start">
+                    <!-- 復習リマインダーバナー (v3) -->
+                    <div id="review-reminder-banner" class="review-reminder-banner" style="display: none;">
+                        <div class="review-reminder-content">
+                            <span class="review-reminder-icon">🔔</span>
+                            <div class="review-reminder-text">
+                                <strong id="review-reminder-title">復習の時間です！</strong>
+                                <span id="review-reminder-desc">忘れかけた頃がベストタイミング</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- 学習開始セクション -->
                     <div class="quick-start-section-compact">
                         <div class="study-config-compact">
                             <div class="config-row-compact">
                                 <label class="config-label-compact">出題範囲</label>
                                 <select id="material-select" class="config-select-compact">
-                                    <option value="review-priority">復習待ち優先</option>
-                                    <option value="all">全ての問題からランダム</option>
+                                    <option value="review-priority">🔄 復習待ち優先</option>
+                                    <option value="all">🎲 全ての問題からランダム</option>
                                 </select>
                             </div>
                             <div class="config-row-compact">
@@ -306,8 +317,22 @@
                             </div>
                         </div>
                         <button id="start-quiz-btn" class="btn btn-success btn-large-compact">
-                            学習を開始する
+                            🚀 学習を開始する
                         </button>
+                    </div>
+
+                    <!-- 学習のコツ (v3) -->
+                    <div id="learning-tip-card" class="learning-tip-card"
+                        style="margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1)); border-radius: 12px; border-left: 4px solid #6366f1;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <span style="font-size: 1.5rem;">💡</span>
+                            <div>
+                                <strong style="color: #a5b4fc; font-size: 0.85rem;">今日の学習のコツ</strong>
+                                <p id="learning-tip-text"
+                                    style="color: #e2e8f0; font-size: 0.9rem; margin: 0.25rem 0 0 0;">
+                                    忘れかけた頃に復習すると、記憶が強化されます</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Public Gallery Banner -->
@@ -322,7 +347,7 @@
                         </button>
                     </div>
 
-                    <!-- 統計（コンパクト） -->
+                    <!-- 統計（コンパクト・復習強調） -->
                     <div class="stats-grid-compact">
                         <div class="stat-card-compact">
                             <div class="stat-label-compact">総問題数</div>
@@ -332,12 +357,13 @@
                             <div class="stat-label-compact">正解率</div>
                             <div class="stat-value-compact" id="accuracy-rate">0%</div>
                         </div>
-                        <div class="stat-card-compact clickable" id="review-count-card">
-                            <div class="stat-label-compact">復習待ち</div>
-                            <div class="stat-value-compact" id="review-count">0</div>
+                        <div class="stat-card-compact clickable review-highlight" id="review-count-card"
+                            style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1)); border: 1px solid rgba(251, 191, 36, 0.3);">
+                            <div class="stat-label-compact" style="color: #fbbf24;">🔔 復習待ち</div>
+                            <div class="stat-value-compact" id="review-count" style="color: #fbbf24;">0</div>
                         </div>
                         <div class="stat-card-compact">
-                            <div class="stat-label-compact">連続学習</div>
+                            <div class="stat-label-compact">🔥 連続</div>
                             <div class="stat-value-compact" id="streak-count">0</div>
                         </div>
                     </div>

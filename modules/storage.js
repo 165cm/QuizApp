@@ -223,12 +223,23 @@ export async function syncWithSupabase() {
                 if (rq.question_text === 'No question text') return;
 
                 // Map cloud format to local format
+                // v3: Parse explanation if it's JSON string (structured format)
+                let parsedExplanation = rq.explanation || '';
+                try {
+                    if (typeof parsedExplanation === 'string' && parsedExplanation.startsWith('{')) {
+                        parsedExplanation = JSON.parse(parsedExplanation);
+                    }
+                } catch (e) {
+                    // Keep as string if parse fails
+                }
                 const localFormat = {
                     id: rq.id,
                     question: rq.question_text,
                     choices: rq.choices || [],
                     correctIndex: rq.choices?.indexOf(rq.correct_answer) ?? 0,
-                    explanation: rq.explanation || '',
+                    explanation: parsedExplanation,
+                    misconception: rq.misconception || null,
+                    learningGoal: rq.learning_goal || null,
                     materialId: rq.material_id,
                     imageUrl: rq.image_url,
                     imageGridIndex: rq.image_grid_index,
@@ -348,6 +359,12 @@ export async function saveQuestionToCloud(question) {
         }
     }
 
+    // v3: Serialize explanation to JSON if it's an object
+    let explanationStr = question.explanation || '';
+    if (typeof explanationStr === 'object') {
+        explanationStr = JSON.stringify(explanationStr);
+    }
+
     const qData = {
         id: String(question.id), // Ensure ID is string
         user_id: appState.currentUser?.id || null,  // 未ログインの場合はnull
@@ -355,7 +372,7 @@ export async function saveQuestionToCloud(question) {
         question_text: question.question || question.text || 'No question text',
         choices: question.choices || [],
         correct_answer: correctAnswer || 'Unknown',
-        explanation: question.explanation || '',
+        explanation: explanationStr,
         review_count: question.reviewCount || 0,
         last_reviewed: question.lastReviewed || null,
         ease_factor: question.easeFactor || 2.5,

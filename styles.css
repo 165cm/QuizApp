@@ -799,6 +799,100 @@ button {
     /* Accent line */
 }
 
+/* Explanation Carousel (v3 Compact) */
+.explanation-carousel {
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-x;
+}
+
+.carousel-track {
+    position: relative;
+    min-height: 60px;
+    cursor: grab;
+    user-select: none;
+}
+
+.explanation-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    pointer-events: none;
+}
+
+.explanation-slide.active {
+    position: relative;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Compact Header */
+.slide-header-compact {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.3rem;
+}
+
+.slide-title-compact {
+    flex: 1;
+}
+
+.slide-counter-compact {
+    font-size: 0.7rem;
+    opacity: 0.5;
+}
+
+/* Compact Content */
+.slide-content-compact {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+}
+
+/* Compact Dots */
+.carousel-dots-compact {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+}
+
+.carousel-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.carousel-dot:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.carousel-dot.active {
+    background: var(--primary);
+    width: 16px;
+    border-radius: 3px;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    .slide-content-compact {
+        font-size: 0.85rem;
+    }
+
+    .carousel-track {
+        min-height: 50px;
+    }
+}
+
 /* Utilities */
 .hidden {
     display: none !important;
@@ -846,18 +940,83 @@ button {
 }
 
 .difficulty-badge.basic {
-    background: rgba(59, 130, 246, 0.2);
-    color: #60a5fa;
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.difficulty-badge.intermediate {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FF9800;
 }
 
 .difficulty-badge.standard {
-    background: rgba(16, 185, 129, 0.2);
-    color: #34d399;
+    background: rgba(255, 152, 0, 0.2);
+    color: #FF9800;
 }
 
 .difficulty-badge.advanced {
-    background: rgba(245, 158, 11, 0.2);
+    background: rgba(244, 67, 54, 0.2);
+    color: #F44336;
+}
+
+/* v3: Review Reminder Banner */
+.review-reminder-banner {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1));
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    animation: pulse-gold 2s infinite;
+}
+
+.review-reminder-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.review-reminder-icon {
+    font-size: 1.5rem;
+}
+
+.review-reminder-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.review-reminder-text strong {
     color: #fbbf24;
+    font-size: 0.95rem;
+}
+
+.review-reminder-text span {
+    color: #fcd34d;
+    font-size: 0.85rem;
+}
+
+@keyframes pulse-gold {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+    }
+}
+
+@keyframes pulse-green {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    }
 }
 
 /* Upload Section */
@@ -3580,7 +3739,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     padding: 1.5rem;
-    max-width: 500px;
+    max-width: 350px;
     width: 90%;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     transition: left 0.3s ease;

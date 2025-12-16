@@ -9,6 +9,121 @@ import { triggerConfetti } from './effects.js';
 // Constants
 const BREAK_INTERVAL = 10;
 
+// Carousel interaction handler for explanation slides
+function setupCarouselInteraction(carousel) {
+    if (!carousel) return;
+
+    const track = carousel.querySelector('.carousel-track');
+    const slides = carousel.querySelectorAll('.explanation-slide');
+    const dots = carousel.querySelectorAll('.carousel-dot');
+    const hint = carousel.querySelector('.carousel-hint');
+    let currentIndex = 0;
+    let startX = 0;
+    let isDragging = false;
+
+    function goToSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= slides.length) index = slides.length - 1;
+
+        currentIndex = index;
+        carousel.dataset.current = index;
+
+        // Update slides
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('active', i === index);
+            slide.style.transform = `translateX(${(i - index) * 100}%)`;
+        });
+
+        // Update dots
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === index);
+        });
+
+        // Hide hint after first interaction
+        if (hint && index > 0) {
+            hint.style.opacity = '0';
+        }
+    }
+
+    // Initialize slide positions
+    slides.forEach((slide, i) => {
+        slide.style.transform = `translateX(${i * 100}%)`;
+    });
+
+    // Touch events
+    track.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+    }, { passive: true });
+
+    track.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const endX = e.changedTouches[0].clientX;
+        const diff = startX - endX;
+
+        if (Math.abs(diff) > 50) { // Minimum swipe distance
+            if (diff > 0) {
+                goToSlide(currentIndex + 1); // Swipe left - next
+            } else {
+                goToSlide(currentIndex - 1); // Swipe right - prev
+            }
+        }
+    }, { passive: true });
+
+    // Mouse events for desktop
+    track.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        isDragging = true;
+        track.style.cursor = 'grabbing';
+    });
+
+    track.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        track.style.cursor = 'grab';
+
+        const diff = startX - e.clientX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) {
+                goToSlide(currentIndex + 1);
+            } else {
+                goToSlide(currentIndex - 1);
+            }
+        }
+    });
+
+    track.addEventListener('mouseleave', () => {
+        isDragging = false;
+        track.style.cursor = 'grab';
+    });
+
+    // Dot clicks
+    dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+            goToSlide(parseInt(dot.dataset.index));
+        });
+    });
+
+    // Keyboard navigation (left/right arrows)
+    const keyHandler = (e) => {
+        const feedbackModal = document.getElementById('feedback-modal');
+        if (feedbackModal?.classList.contains('hidden')) return;
+
+        if (e.key === 'ArrowLeft') {
+            goToSlide(currentIndex - 1);
+        } else if (e.key === 'ArrowRight') {
+            goToSlide(currentIndex + 1);
+        }
+    };
+
+    document.addEventListener('keydown', keyHandler);
+
+    // Cleanup on modal close (store reference for removal)
+    carousel._keyHandler = keyHandler;
+}
+
 export function startQuiz() {
     console.log('[Debug] startQuiz called');
     const questions = selectQuestionsForSession();
@@ -119,12 +234,13 @@ function displayQuestion() {
     if (textEl) textEl.textContent = q.question;
     if (numEl) numEl.textContent = appState.currentQuestionIndex + 1;
 
-    // Badge
+    // Badge (v3: supports basic/intermediate/advanced)
     const badge = document.getElementById('difficulty-badge');
     if (badge) {
         const diff = q.difficulty || 'basic';
         badge.className = `difficulty-badge ${diff}`;
-        badge.textContent = diff === 'basic' ? '基礎' : diff === 'standard' ? '標準' : '応用';
+        const labels = { basic: '🌱 基本', intermediate: '🌿 標準', advanced: '🌳 応用' };
+        badge.textContent = labels[diff] || labels.basic;
     }
 
     // Choices (Randomized)
@@ -238,15 +354,104 @@ function showFeedback(q, isCorrect) {
     document.getElementById('feedback-title').textContent = isCorrect ? '正解!' : '不正解';
     document.getElementById('feedback-title').style.color = isCorrect ? '#10b981' : '#ef4444';
 
-    // Show correct answer in feedback modal (important for mobile where choices are hidden)
     const correctAnswer = q.choices[q.correctIndex];
     const explanationEl = document.getElementById('feedback-explanation');
-    explanationEl.innerHTML = `
-        <div style="background: rgba(16, 185, 129, 0.15); padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; border-left: 3px solid #10b981;">
-            <strong style="color: #10b981;">✓ 正解:</strong> ${correctAnswer}
+
+    // Build carousel slides
+    const slides = [];
+
+    // Slide 1: Correct Answer (always shown)
+    slides.push({
+        icon: '✓',
+        title: '正解',
+        content: correctAnswer,
+        color: '#10b981',
+        bgColor: 'rgba(16, 185, 129, 0.15)'
+    });
+
+    // v3 structured explanation
+    if (q.explanation && typeof q.explanation === 'object') {
+        const { hook, core, application } = q.explanation;
+        if (hook) {
+            slides.push({
+                icon: '💡',
+                title: 'ポイント',
+                content: hook,
+                color: '#fbbf24',
+                bgColor: 'rgba(251, 191, 36, 0.1)'
+            });
+        }
+        if (core) {
+            slides.push({
+                icon: '📖',
+                title: '解説',
+                content: core,
+                color: '#60a5fa',
+                bgColor: 'rgba(96, 165, 250, 0.1)'
+            });
+        }
+        if (application) {
+            slides.push({
+                icon: '🚀',
+                title: '応用',
+                content: application,
+                color: '#a78bfa',
+                bgColor: 'rgba(167, 139, 250, 0.1)'
+            });
+        }
+    } else if (q.explanation) {
+        // Legacy string format - single slide
+        slides.push({
+            icon: '📖',
+            title: '解説',
+            content: q.explanation,
+            color: '#60a5fa',
+            bgColor: 'rgba(96, 165, 250, 0.1)'
+        });
+    }
+
+    // Misconception slide (v3)
+    if (q.misconception) {
+        slides.push({
+            icon: '⚠️',
+            title: 'よくある間違い',
+            content: q.misconception,
+            color: '#f87171',
+            bgColor: 'rgba(248, 113, 113, 0.1)'
+        });
+    }
+
+    // Build carousel HTML (compact version - no backgrounds or borders)
+    const slidesHTML = slides.map((slide, i) => `
+        <div class="explanation-slide ${i === 0 ? 'active' : ''}" data-index="${i}">
+            <div class="slide-header-compact" style="color: ${slide.color};">
+                <span>${slide.icon}</span>
+                <span class="slide-title-compact">${slide.title}</span>
+                <span class="slide-counter-compact">${i + 1}/${slides.length}</span>
+            </div>
+            <div class="slide-content-compact">${slide.content}</div>
         </div>
-        <div>${q.explanation}</div>
+    `).join('');
+
+    const dotsHTML = slides.length > 1 ? `
+        <div class="carousel-dots-compact">
+            ${slides.map((_, i) => `<span class="carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('')}
+        </div>
+    ` : '';
+
+    explanationEl.innerHTML = `
+        <div class="explanation-carousel" data-current="0" data-total="${slides.length}">
+            <div class="carousel-track">
+                ${slidesHTML}
+            </div>
+            ${dotsHTML}
+        </div>
     `;
+
+    // Setup carousel interaction
+    if (slides.length > 1) {
+        setupCarouselInteraction(explanationEl.querySelector('.explanation-carousel'));
+    }
 
     const nextBtn = document.getElementById('next-question-btn');
     const timerEl = document.getElementById('feedback-timer');

@@ -164,15 +164,21 @@ export async function generateQuestionsWithAI(text, fileName, questionCount = 30
     prompt = prompt.replace('{{instructions}}', instructions);
     prompt = prompt.replace('{{text}}', truncatedText);
 
-    // Context Injection
+    // Context Injection (v3: includes surprises, misconceptions, storyline)
     let contextStr = '特になし';
     if (customSettings?.context) {
         const c = customSettings.context;
+        const conceptsStr = Array.isArray(c.concepts)
+            ? c.concepts.map(con => typeof con === 'object' ? `${con.ja}(${con.en})` : con).join(', ')
+            : '';
         contextStr = `
-- ターゲット読者: ${c.audience}
-- 学習目標: ${c.goals.join(', ')}
-- キーコンセプト: ${c.concepts.join(', ')}
-- トーン: ${c.tone}
+- ターゲット読者: ${c.audience || '一般'}
+- 学習目標: ${(c.goals || []).join(', ')}
+- 驚きポイント: ${(c.surprises || []).join(', ')}
+- よくある誤解: ${(c.misconceptions || []).join(', ')}
+- キーコンセプト: ${conceptsStr}
+- ストーリーライン: ${c.storyline || ''}
+- トーン: ${c.tone || '親しみやすい'}
 `;
     }
     prompt = prompt.replace('{{context}}', contextStr);
@@ -430,11 +436,11 @@ export async function generateImagesForQuestions(questions) {
             }
             prompts.push(...rankPrompts);
 
-            // 3. Create Grid Prompt (4x3 = 12 panels)
-            // Aspect Ratio: 4:3 total. With 4 cols x 3 rows, each panel is 1:1 square. Perfect.
+
+            // 3. Create Grid Prompt (4x3 = 12 panels) - v3.1: no text, no thick borders
             let gridPrompt = "Create a single image with a STRICT 4:3 Aspect Ratio, containing a 4x3 grid layout (12 panels). 4 columns, 3 rows. \n";
             gridPrompt += "Panel size: Each panel MUST be a perfect SQUARE (1:1 aspect ratio). \n";
-            gridPrompt += "Thin white separator lines between panels. \n";
+            gridPrompt += "Very thin subtle separator lines between panels (almost invisible). \n";
 
             prompts.forEach((p, idx) => {
                 // Truncate individual prompts to prevent overflow/confusion
@@ -445,7 +451,8 @@ export async function generateImagesForQuestions(questions) {
             for (let i = prompts.length; i < 12; i++) {
                 gridPrompt += `Panel ${i + 1}: colorful abstract pattern. \n`;
             }
-            gridPrompt += "Constraint: Maintain perfect 4x3 grid alignment. All 12 panels distinct and SQUARE. Cohesive Japanese Anime style, vivid colors.";
+            gridPrompt += "Constraint: Maintain perfect 4x3 grid alignment. All 12 panels distinct and SQUARE. Cohesive Japanese Anime style, vivid colors. ";
+            gridPrompt += "IMPORTANT: No text, no words, no letters, no numbers in any panel. No thick borders or frames.";
 
             // 4. Generate single grid image (Base64)
             const base64Image = await generateGridImage(gridPrompt);
@@ -702,15 +709,16 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
 
         // Check Image Gen setting
         const useImageGen = document.getElementById('image-gen-checkbox')?.checked;
-        let qCount = appState.questionCount || 10;
 
-        // Limit to 9 for cost saving (1 API call = 9 grid images) if image gen is ON
-        if (useImageGen && qCount > 9) {
-            qCount = 9;
-        }
+        // Generate 12 questions, use first 9 (safety margin for AI variability)
+        const qCountRequest = 12;
+        const qCountTarget = 9;
 
-        const questions = await generateQuestionsWithAI(text, sourceName, qCount, genSettings);
+        let questions = await generateQuestionsWithAI(text, sourceName, qCountRequest, genSettings);
         stopProgressSimulation();
+
+        // Take first 9 (or all if less than 9 were generated)
+        questions = questions.slice(0, qCountTarget);
 
         // Attach context to questions for image generation usage
         questions.forEach(q => q.contextData = analysisContext);

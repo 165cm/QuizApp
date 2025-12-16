@@ -2,6 +2,42 @@ import { appState } from './state.js';
 import { getReviewDueCount } from './quiz.js';
 import { renderInterestsChart, renderWeakPoints } from './stats.js';
 
+// Mini carousel interaction for review explanations
+function setupMiniCarousel(carousel) {
+    if (!carousel) return;
+
+    const track = carousel.querySelector('.carousel-track');
+    const slides = carousel.querySelectorAll('.explanation-slide');
+    const dots = carousel.querySelectorAll('.carousel-dot');
+    let currentIndex = 0;
+    let startX = 0;
+
+    function goToSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= slides.length) index = slides.length - 1;
+        currentIndex = index;
+
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('active', i === index);
+            slide.style.transform = `translateX(${(i - index) * 100}%)`;
+        });
+        dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+    }
+
+    // Initialize positions
+    slides.forEach((slide, i) => slide.style.transform = `translateX(${i * 100}%)`);
+
+    // Touch events
+    track.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', (e) => {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) goToSlide(diff > 0 ? currentIndex + 1 : currentIndex - 1);
+    }, { passive: true });
+
+    // Click on dots
+    dots.forEach(dot => dot.addEventListener('click', () => goToSlide(parseInt(dot.dataset.index))));
+}
+
 export function showScreen(screenId) {
     console.log(`[Debug] showScreen called for: ${screenId}`);
     document.querySelectorAll('.screen').forEach(screen => {
@@ -42,6 +78,34 @@ export function updateStatsUI() {
 
     const reviewEl = document.getElementById('review-count');
     if (reviewEl) reviewEl.textContent = reviewCount;
+
+    // v3: Review Reminder Banner
+    const reminderBanner = document.getElementById('review-reminder-banner');
+    if (reminderBanner) {
+        if (reviewCount > 0) {
+            reminderBanner.style.display = 'block';
+            const titleEl = document.getElementById('review-reminder-title');
+            const descEl = document.getElementById('review-reminder-desc');
+            if (titleEl) titleEl.textContent = `${reviewCount}問の復習待ち！`;
+            if (descEl) descEl.textContent = '忘れかけた頃がベストタイミング';
+        } else {
+            reminderBanner.style.display = 'none';
+        }
+    }
+
+    // v3: Learning Tip (rotate based on day/stats)
+    const tipEl = document.getElementById('learning-tip-text');
+    if (tipEl) {
+        const tips = [
+            '忘れかけた頃に復習すると、記憶が強化されます',
+            '間違えた問題は「惜しかった！」と思うほど記憶に残ります',
+            '10秒のぼーっとタイムが脳の整理を助けます',
+            '「なぜ？」を考えながら解くと理解が深まります',
+            '1日後→3日後→7日後と間隔を空けると効果的です'
+        ];
+        const dayIndex = new Date().getDate() % tips.length;
+        tipEl.textContent = tips[dayIndex];
+    }
 }
 
 export function updateReportUI() {
@@ -360,7 +424,74 @@ function handleMiniAnswer(btn, q, correctIdx) {
 
     if (explanation && q.explanation) {
         explanation.style.display = 'block';
-        explanation.textContent = q.explanation;
+
+        // v3: Parse explanation if it's a JSON string
+        let exp = q.explanation;
+        if (typeof exp === 'string' && exp.startsWith('{')) {
+            try {
+                exp = JSON.parse(exp);
+            } catch (e) {
+                // Keep as string if parse fails
+            }
+        }
+
+        // Build mini carousel slides
+        const slides = [];
+        const correctAnswer = q.choices ? q.choices[q.correctIndex] : '';
+
+        // Slide 1: Correct Answer
+        if (correctAnswer) {
+            slides.push({ icon: '✓', title: '正解', content: correctAnswer, color: '#10b981' });
+        }
+
+        // v3: handle object format with hook/core/application
+        if (typeof exp === 'object' && exp.hook) {
+            const { hook, core, application } = exp;
+            if (hook) slides.push({ icon: '💡', title: 'ポイント', content: hook, color: '#fbbf24' });
+            if (core) slides.push({ icon: '📖', title: '解説', content: core, color: '#60a5fa' });
+            if (application) slides.push({ icon: '🚀', title: '応用', content: application, color: '#a78bfa' });
+        } else if (typeof exp === 'string' && exp) {
+            slides.push({ icon: '📖', title: '解説', content: exp, color: '#60a5fa' });
+        }
+
+        // Misconception slide
+        if (q.misconception) {
+            slides.push({ icon: '⚠️', title: 'よくある間違い', content: q.misconception, color: '#f87171' });
+        }
+
+        // Build carousel HTML
+        if (slides.length > 0) {
+            const slidesHTML = slides.map((s, i) => `
+                <div class="explanation-slide ${i === 0 ? 'active' : ''}" data-index="${i}">
+                    <div class="slide-header-compact" style="color: ${s.color};">
+                        <span>${s.icon}</span>
+                        <span class="slide-title-compact">${s.title}</span>
+                        <span class="slide-counter-compact">${i + 1}/${slides.length}</span>
+                    </div>
+                    <div class="slide-content-compact">${s.content}</div>
+                </div>
+            `).join('');
+
+            const dotsHTML = slides.length > 1 ? `
+                <div class="carousel-dots-compact">
+                    ${slides.map((_, i) => `<span class="carousel-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></span>`).join('')}
+                </div>
+            ` : '';
+
+            explanation.innerHTML = `
+                <div class="explanation-carousel" data-current="0" data-total="${slides.length}">
+                    <div class="carousel-track">${slidesHTML}</div>
+                    ${dotsHTML}
+                </div>
+            `;
+
+            // Setup mini carousel interaction
+            if (slides.length > 1) {
+                setupMiniCarousel(explanation.querySelector('.explanation-carousel'));
+            }
+        } else {
+            explanation.textContent = '';
+        }
     }
 
     // User requested "Keyboard" so manual "Enter" is better.
