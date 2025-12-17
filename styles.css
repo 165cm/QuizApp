@@ -5082,3 +5082,10 @@ body {
     min-height: auto !important;
     padding-top: 1rem !important;
 }
+/* Quiz Content Wrapper for Desktop Alignment */
+.quiz-content-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    /* Ensure content inside doesn't overflow weirdly */
+}

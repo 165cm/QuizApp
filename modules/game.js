@@ -10,6 +10,8 @@ import { triggerConfetti } from './effects.js';
 const BREAK_INTERVAL = 10;
 
 // Carousel interaction handler for explanation slides
+let currentCarouselKeyHandler = null;
+
 function setupCarouselInteraction(carousel) {
     if (!carousel) return;
 
@@ -107,8 +109,15 @@ function setupCarouselInteraction(carousel) {
     });
 
     // Keyboard navigation (left/right arrows)
+    // Remove existing handler if any to prevent stacking
+    if (currentCarouselKeyHandler) {
+        document.removeEventListener('keydown', currentCarouselKeyHandler);
+        currentCarouselKeyHandler = null;
+    }
+
     const keyHandler = (e) => {
         const feedbackModal = document.getElementById('feedback-modal');
+        // Only trigger if feedback modal is visible
         if (feedbackModal?.classList.contains('hidden')) return;
 
         if (e.key === 'ArrowLeft') {
@@ -119,15 +128,14 @@ function setupCarouselInteraction(carousel) {
     };
 
     document.addEventListener('keydown', keyHandler);
+    currentCarouselKeyHandler = keyHandler;
 
-    // Cleanup on modal close (store reference for removal)
+    // Cleanup on modal close (store reference for removal if needed explicitly)
     carousel._keyHandler = keyHandler;
 }
 
 export function startQuiz() {
-    console.log('[Debug] startQuiz called');
     const questions = selectQuestionsForSession();
-    console.log('[Debug] Questions selected:', questions ? questions.length : 0);
 
     if (questions.length === 0) {
         alert('出題できる問題がありません。「教材生成」から問題を作ってください。');
@@ -150,7 +158,6 @@ export function startQuiz() {
     // Update counters
     const currentQEl = document.getElementById('current-question');
     const totalQEl = document.getElementById('total-quiz-questions');
-    console.log('[Debug] Counter Elements:', { currentQEl, totalQEl });
 
     if (currentQEl) currentQEl.textContent = '1';
     if (totalQEl) totalQEl.textContent = questions.length;
@@ -166,13 +173,6 @@ export function startQuiz() {
     // Report Button Logic (Show only for Public Library content)
     const reportBtn = document.getElementById('report-quiz-btn');
     const currentMaterial = appState.materials.find(m => m.id === appState.currentMaterialId);
-
-    console.log('[Debug] startQuiz - Report Button Check:', {
-        exists: !!reportBtn,
-        material: currentMaterial,
-        materialId: appState.currentMaterialId,
-        isPublic: currentMaterial?.isPublicSource
-    });
 
     if (reportBtn) {
         if (currentMaterial && currentMaterial.isPublicSource) {
@@ -212,16 +212,13 @@ function shuffle(array) {
 }
 
 function displayQuestion() {
-    console.log('[Debug] displayQuestion called. Index:', appState.currentQuestionIndex);
     const q = appState.currentQuiz[appState.currentQuestionIndex];
     if (!q) {
-        console.error('[Debug] No question found at index!');
         return;
     }
 
     // Force repair if index is invalid (Double Safety for Single Question)
     if (q.correctIndex === -1 || q.correctIndex === undefined) {
-        console.warn('[Debug] repairing single question index on fly', q);
         if (q.choices && q.correctAnswer) {
             q.correctIndex = q.choices.findIndex(c => c.trim() === q.correctAnswer.trim());
         }
@@ -753,7 +750,6 @@ setupKeyboardShortcuts();
 
 // Expose to global for api.js integration
 window.startQuizWithMaterial = (materialId) => {
-    console.log('[Debug] window.startQuizWithMaterial called with:', materialId);
     appState.currentMaterialId = materialId;
     appState.selectedMaterial = materialId;
     startQuiz();

@@ -3,6 +3,8 @@ import { getReviewDueCount } from './quiz.js';
 import { renderInterestsChart, renderWeakPoints } from './stats.js';
 
 // Mini carousel interaction for review explanations
+let currentMiniCarouselKeyHandler = null;
+
 function setupMiniCarousel(carousel) {
     if (!carousel) return;
 
@@ -35,7 +37,29 @@ function setupMiniCarousel(carousel) {
     }, { passive: true });
 
     // Click on dots
+    // Click on dots
     dots.forEach(dot => dot.addEventListener('click', () => goToSlide(parseInt(dot.dataset.index))));
+
+    // Keyboard navigation (Keydown)
+    if (currentMiniCarouselKeyHandler) {
+        document.removeEventListener('keydown', currentMiniCarouselKeyHandler);
+        currentMiniCarouselKeyHandler = null;
+    }
+
+    const keyHandler = (e) => {
+        // Only trigger if generating screen is active
+        const genScreen = document.getElementById('generating-screen');
+        if (genScreen?.classList.contains('hidden')) return;
+
+        if (e.key === 'ArrowLeft') {
+            goToSlide(currentIndex - 1);
+        } else if (e.key === 'ArrowRight') {
+            goToSlide(currentIndex + 1);
+        }
+    };
+
+    document.addEventListener('keydown', keyHandler);
+    currentMiniCarouselKeyHandler = keyHandler;
 }
 
 export function showScreen(screenId) {
@@ -545,28 +569,22 @@ export function showGenerationCompleteModal(material) {
     // Animation
     requestAnimationFrame(() => modal.style.opacity = '1');
 
-    console.log('[Debug] showGenerationCompleteModal - Modal created');
-
     // Events
     const playBtn = document.getElementById('gen-play-btn');
-    console.log('[Debug] gen-play-btn element:', playBtn);
 
     if (playBtn) {
         playBtn.onclick = () => {
-            console.log('[Debug] gen-play-btn clicked! Material ID:', material.id);
             modal.remove();
             stopMiniReview();
             // Use global exposed wrapper
             if (window.startQuizWithMaterial) {
-                console.log('[Debug] Calling startQuizWithMaterial');
                 window.startQuizWithMaterial(material.id);
             } else {
-                console.error('[Debug] startQuizWithMaterial NOT FOUND on window!');
                 alert('startQuizWithMaterial が見つかりません。リロードしてください。');
             }
         };
     } else {
-        console.error('[Debug] gen-play-btn NOT FOUND!');
+        // playBtn not found
     }
 
     document.getElementById('gen-close-btn').onclick = () => {

@@ -3,7 +3,7 @@ import { loadData, saveApiKey, resetAllData, cleanupOldImages, getFreeGenCount, 
 import { showScreen, updateStatsUI, updateMaterialSelectUI, updateReportUI } from './modules/ui.js';
 import { generateQuizFromText, generateQuizFromUrl, extractTextFromPDF, generateMaterialMetadata, generateQuestionsWithAI, generateImagesForQuestions, updateGeneratingStatus, regenerateImages, closePreviewAndGoHome } from './modules/api.js';
 import { startQuiz } from './modules/game.js';
-import { initLibrary, showMaterialsLibrary, showPublicLibrary } from './modules/library.js';
+import { initLibrary, showMaterialsLibrary } from './modules/library.js';
 import { showReviewList } from './modules/review.js';
 import { checkForSharedCertificate, checkForSharedMaterial, copyShareURL, generateQRCode } from './modules/share.js';
 import { initAuth, signInWithGoogle, signOut } from './modules/auth.js';
@@ -93,6 +93,11 @@ function setupEventListeners() {
                     if (tab === 'report') {
                         updateReportUI();
                     }
+                    if (tab === 'generate') {
+                        // Reset image gen option visibility (in case it was hidden by share flow)
+                        const imgOption = document.querySelector('.image-gen-option');
+                        if (imgOption) imgOption.style.display = 'block';
+                    }
                 }
             } else if (screen === 'references') {
                 showMaterialsLibrary();
@@ -123,19 +128,7 @@ function setupEventListeners() {
     document.getElementById('review-count-card')?.addEventListener('click', showReviewList);
     document.getElementById('back-to-home-btn')?.addEventListener('click', initHomeScreen);
     document.getElementById('back-to-home-from-review-btn')?.addEventListener('click', initHomeScreen);
-    // Public Gallery Navigation
-    document.getElementById('go-to-public-btn')?.addEventListener('click', () => {
-        showPublicLibrary();
-    });
 
-    // Back from Public Gallery
-    document.getElementById('back-to-home-from-public-btn')?.addEventListener('click', () => {
-        showScreen('home-screen');
-    });
-
-    document.getElementById('public-refresh-btn')?.addEventListener('click', () => {
-        showPublicLibrary();
-    });
 
     // Material Detail
     document.getElementById('back-to-library-btn')?.addEventListener('click', () => {
@@ -274,6 +267,12 @@ function setupEventListeners() {
         document.querySelectorAll('.nav-item').forEach(btn => {
             if (btn.dataset.tab === 'generate') btn.click();
         });
+
+        // Hide image generation option for free tier/share flow
+        const imgOption = document.querySelector('.image-gen-option');
+        const imgCheck = document.getElementById('image-gen-checkbox');
+        if (imgOption) imgOption.style.display = 'none';
+        if (imgCheck) imgCheck.checked = false;
     });
 
     // Auth Limit Modal

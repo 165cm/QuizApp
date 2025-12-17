@@ -2,7 +2,7 @@ import { appState } from './state.js';
 import { saveQuestions, saveMaterials, saveMaterialToCloud, saveQuestionToCloud, uploadImage, getDeviceId } from './storage.js';
 import { showScreen, updateStatsUI, updateMaterialSelectUI, startMiniReview, stopMiniReview, signalQuizReady, showGenerationCompleteModal } from './ui.js';
 import { DEFAULT_PROMPTS, ImagePromptHelper, GachaEngine } from './default_prompts.js';
-import { showPublicLibrary } from './library.js';
+
 
 
 
@@ -772,7 +772,7 @@ export async function generateQuizFromText(text, sourceName, customSettings = nu
             updateGeneratingStatus('画像生成にはログインが必要です（スキップ）', 90);
         }
 
-        updateGeneratingStatus('完了！みんなの広場に移動します...', 100);
+        updateGeneratingStatus('完了！プレビューを表示します...', 100);
 
         // クイズ生成完了後は「プレビュー画面」を表示 (生成完了モーダルの代わりに)
         signalQuizReady(() => {
@@ -922,17 +922,14 @@ export function showQuizPreview(material, questions) {
     modal.style.display = 'block';
 
     // Event Listener for Start
-    console.log('[Debug] showQuizPreview - startBtn exists:', !!startBtn);
     if (startBtn) {
         startBtn.onclick = () => {
-            console.log('[Debug] preview-start-btn clicked! Material ID:', material.id);
             modal.classList.add('hidden');
             modal.style.display = 'none';
             if (window.startQuizWithMaterial) {
-                console.log('[Debug] Calling window.startQuizWithMaterial');
                 window.startQuizWithMaterial(material.id);
             } else {
-                console.error('[Debug] window.startQuizWithMaterial NOT FOUND!');
+                // error handling
             }
         };
     }

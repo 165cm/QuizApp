@@ -335,17 +335,8 @@
                         </div>
                     </div>
 
-                    <!-- Public Gallery Banner -->
-                    <div class="public-gallery-banner" style="margin-bottom: 1.5rem;">
-                        <button id="go-to-public-btn" class="btn btn-public-gallery">
-                            <span class="gallery-icon">🌏</span>
-                            <div class="gallery-text">
-                                <span class="gallery-title">みんなのクイズ広場へ</span>
-                                <span class="gallery-desc">人気の無料クイズを探しに行こう！</span>
-                            </div>
-                            <span class="gallery-arrow">→</span>
-                        </button>
-                    </div>
+
+
 
                     <!-- 統計（コンパクト・復習強調） -->
                     <div class="stats-grid-compact">
@@ -449,8 +440,6 @@
                             <!-- 苦手カードがここに表示されます -->
                         </div>
                     </div>
-
-                    <!-- データリセットセクションは設定画面に移動しました -->
                 </div>
             </div>
         </div>
@@ -489,39 +478,6 @@
 
                 <div id="references-list" class="materials-grid">
                     <!-- 教材カード一覧がここに表示されます -->
-                </div>
-            </div>
-        </div>
-
-        <!-- みんなのクイズ広場 (Public Gallery) -->
-        <div id="public-library-screen" class="screen">
-            <div class="container">
-                <div class="header">
-                    <button id="back-to-home-from-public-btn" class="btn-text">← ホームへ</button>
-                    <h1 class="logo">🌏 みんなのクイズ広場</h1>
-                </div>
-
-                <!-- SEO Section -->
-                <div class="seo-section">
-                    <h2 class="seo-title">AIが生成した無料の学習クイズ集</h2>
-                    <p class="seo-description">
-                        ユーザーが作成したオリジナルのクイズに挑戦しよう！<br>
-                        資格試験、語学学習、雑学、エンタメなど、様々なジャンルの問題が無料で解き放題。<br>
-                        <span class="seo-keywords">#AIクイズ #無料問題集 #資格勉強 #英語学習 #過去問</span>
-                    </p>
-                </div>
-
-                <!-- フィルター -->
-                <div class="filter-bar-compact">
-                    <input type="text" id="public-search" class="search-input-compact" placeholder="🔍 公開クイズを検索...">
-                    <div class="view-switcher">
-                        <span class="refresh-hint" id="public-refresh-btn" style="cursor:pointer;">🔄 更新</span>
-                    </div>
-                </div>
-
-                <div id="public-list" class="materials-grid">
-                    <!-- 公開クイズがここにロードされます -->
-                    <div class="loader-spinner"></div>
                 </div>
             </div>
         </div>
@@ -642,7 +598,7 @@
 
         <!-- クイズ画面 -->
         <div id="quiz-screen" class="screen hidden">
-            <div class="container center">
+            <div class="quiz-content-wrapper">
                 <div class="quiz-header">
                     <button id="report-quiz-btn" class="hidden" title="問題を報告する">🚩</button>
                     <button id="quit-btn" class="btn-secondary btn-icon" aria-label="やめる">
@@ -657,25 +613,20 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div id="quiz-progress-grid" class="progress-grid">
-                <!-- グリッド形式の進捗表示がここに動的に生成されます -->
-            </div>
-
-            <div class="difficulty-badge" id="difficulty-badge">基礎</div>
-
-            <!-- タグを問題枠の外に配置 -->
-            <div id="question-tags" class="question-tags-outside">
-                <!-- 問題のタグがここに表示されます -->
-            </div>
-
-            <div class="question-card">
-                <div id="question-image-container" class="quiz-image-container" style="display: none;">
-                    <img id="question-image" class="quiz-image" alt="Quiz illustration">
+                <div id="quiz-progress-grid" class="progress-grid">
+                    <!-- グリッド形式の進捗表示がここに動的に生成されます -->
                 </div>
-                <h2 id="question-text" class="question-text"></h2>
-                <div id="choices-container" class="choices-container"></div>
+
+                <div class="difficulty-badge" id="difficulty-badge">基礎</div>
+
+                <div class="question-card">
+                    <div id="question-image-container" class="quiz-image-container" style="display: none;">
+                        <img id="question-image" class="quiz-image" alt="Quiz illustration">
+                    </div>
+                    <h2 id="question-text" class="question-text"></h2>
+                    <div id="choices-container" class="choices-container"></div>
+                </div>
             </div>
 
             <!-- ナビゲーション（目立たない） -->
@@ -758,7 +709,8 @@
             <div class="certificate-card" id="certificate-card">
                 <div class="certificate-header"
                     style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 20px 20px 0 0; text-align: center; color: white;">
-                    <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px;">QUIZ MASTER CERTIFICATE</div>
+                    <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px;">QUIZ MASTER
+                        CERTIFICATE</div>
                     <h2 id="cert-quiz-title" style="margin: 0; font-size: 1.5rem;">クイズタイトル</h2>
                 </div>
 
@@ -771,13 +723,16 @@
                         <div id="cert-score"
                             style="font-size: 3.5rem; font-weight: 800; background: linear-gradient(to right, #fbbf24, #d97706); -webkit-background-clip: text; color: transparent;">
                             100%</div>
-                        <div id="cert-detail" style="font-size: 1rem; opacity: 0.8; margin-bottom: 20px;">(10問中10問正解)
+                        <div id="cert-detail" style="font-size: 1rem; opacity: 0.8; margin-bottom: 20px;">
+                            (10問中10問正解)
                         </div>
 
-                        <div style="border-top: 1px solid rgba(255,255,255,0.1); width: 60%; margin: 20px auto;"></div>
+                        <div style="border-top: 1px solid rgba(255,255,255,0.1); width: 60%; margin: 20px auto;">
+                        </div>
 
                         <div style="font-size: 0.9rem; opacity: 0.7;">DATE</div>
-                        <div id="cert-date" style="font-size: 1.1rem; font-family: monospace;">2024.12.15</div>
+                        <div id="cert-date" style="font-size: 1.1rem; font-family: monospace;">2024.12.15
+                        </div>
                     </div>
                 </div>
 
@@ -1071,7 +1026,8 @@
                 </label>
             </div>
             <div class="setting-actions">
-                <button id="confirm-generate-btn" class="btn btn-primary btn-full-width" disabled>🚀 クイズを生成する</button>
+                <button id="confirm-generate-btn" class="btn btn-primary btn-full-width" disabled>🚀
+                    クイズを生成する</button>
             </div>
         </div>
     </div>
